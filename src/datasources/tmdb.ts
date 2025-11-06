@@ -1,4 +1,5 @@
 import axios, { AxiosInstance } from 'axios';
+import { handleTMDBError } from '../utils/tmdbErrorHandler';
 
 const TMDB_BASE_URL = 'https://api.themoviedb.org/3';
 
@@ -21,30 +22,18 @@ export class TMDBDataSource {
       const response = await this.client.get(`/movie/${movieId}`);
       return response.data;
     } catch (error: any) {
-      if (error.response) {
-        throw new Error(
-          `TMDB API error: ${error.response.status} - ${error.response.data?.status_message || error.message}`
-        );
-      }
-      throw new Error(`Failed to fetch movie from TMDB: ${error.message || 'Unknown error'}`);
+      throw handleTMDBError(error, 'Failed to fetch movie from TMDB');
     }
   }
 
   async searchMovies(query: string) {
     try {
       const response = await this.client.get('/search/movie', {
-        params: {
-          query,
-        },
+        params: { query },
       });
       return response.data.results || [];
     } catch (error: any) {
-      if (error.response) {
-        throw new Error(
-          `TMDB API error: ${error.response.status} - ${error.response.data?.status_message || error.message}`
-        );
-      }
-      throw new Error(`Failed to search movies from TMDB: ${error.message || 'Unknown error'}`);
+      throw handleTMDBError(error, 'Failed to search movies from TMDB');
     }
   }
 
@@ -79,12 +68,7 @@ export class TMDBDataSource {
       });
       return response.data.results || [];
     } catch (error: any) {
-      if (error.response) {
-        throw new Error(
-          `TMDB API error: ${error.response.status} - ${error.response.data?.status_message || error.message}`
-        );
-      }
-      throw new Error(`Failed to discover movies from TMDB: ${error.message || 'Unknown error'}`);
+      throw handleTMDBError(error, 'Failed to discover movies from TMDB');
     }
   }
 
@@ -93,30 +77,18 @@ export class TMDBDataSource {
       const response = await this.client.get(`/person/${personId}`);
       return response.data;
     } catch (error: any) {
-      if (error.response) {
-        throw new Error(
-          `TMDB API error: ${error.response.status} - ${error.response.data?.status_message || error.message}`
-        );
-      }
-      throw new Error(`Failed to fetch person from TMDB: ${error.message || 'Unknown error'}`);
+      throw handleTMDBError(error, 'Failed to fetch person from TMDB');
     }
   }
 
   async searchPeople(query: string) {
     try {
       const response = await this.client.get('/search/person', {
-        params: {
-          query,
-        },
+        params: { query },
       });
       return response.data.results || [];
     } catch (error: any) {
-      if (error.response) {
-        throw new Error(
-          `TMDB API error: ${error.response.status} - ${error.response.data?.status_message || error.message}`
-        );
-      }
-      throw new Error(`Failed to search people from TMDB: ${error.message || 'Unknown error'}`);
+      throw handleTMDBError(error, 'Failed to search people from TMDB');
     }
   }
 
@@ -152,12 +124,7 @@ export class TMDBDataSource {
       const randomIndex = Math.floor(Math.random() * movies.length);
       return movies[randomIndex];
     } catch (error: any) {
-      if (error.response) {
-        throw new Error(
-          `TMDB API error: ${error.response.status} - ${error.response.data?.status_message || error.message}`
-        );
-      }
-      throw new Error(`Failed to get random movie from TMDB: ${error.message || 'Unknown error'}`);
+      throw handleTMDBError(error, 'Failed to get random movie from TMDB');
     }
   }
 
@@ -191,12 +158,7 @@ export class TMDBDataSource {
       const randomIndex = Math.floor(Math.random() * people.length);
       return people[randomIndex];
     } catch (error: any) {
-      if (error.response) {
-        throw new Error(
-          `TMDB API error: ${error.response.status} - ${error.response.data?.status_message || error.message}`
-        );
-      }
-      throw new Error(`Failed to get random person from TMDB: ${error.message || 'Unknown error'}`);
+      throw handleTMDBError(error, 'Failed to get random person from TMDB');
     }
   }
 }
