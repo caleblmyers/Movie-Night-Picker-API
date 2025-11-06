@@ -1,6 +1,6 @@
-import { Movie, Person } from '../types';
+import { Movie, Person } from "../types";
 
-const TMDB_IMAGE_BASE_URL = 'https://image.tmdb.org/t/p/w500';
+const TMDB_IMAGE_BASE_URL = "https://image.tmdb.org/t/p/w500";
 
 export function transformTMDBMovie(tmdbMovie: any): Movie {
   return {
@@ -30,4 +30,3 @@ export function transformTMDBPerson(tmdbPerson: any): Person {
     popularity: tmdbPerson.popularity || null,
   };
 }
-

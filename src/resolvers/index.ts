@@ -1,12 +1,12 @@
-import { Context } from '../context';
-import { Movie, Person } from '../types';
-import { transformTMDBMovie, transformTMDBPerson } from '../utils/transformers';
-import { handleError } from '../utils/errorHandler';
+import { Context } from "../context";
+import { Movie, Person } from "../types";
+import { transformTMDBMovie, transformTMDBPerson } from "../utils/transformers";
+import { handleError } from "../utils/errorHandler";
 import {
   buildDiscoverParams,
   shouldTryFallback,
   pickRandomItem,
-} from '../utils/discoverHelpers';
+} from "../utils/discoverHelpers";
 
 export const resolvers = {
   Query: {
@@ -19,7 +19,7 @@ export const resolvers = {
         const tmdbMovie = await context.tmdb.getMovie(args.id);
         return transformTMDBMovie(tmdbMovie);
       } catch (error) {
-        throw handleError(error, 'Failed to fetch movie');
+        throw handleError(error, "Failed to fetch movie");
       }
     },
 
@@ -32,7 +32,7 @@ export const resolvers = {
         const tmdbMovies = await context.tmdb.searchMovies(args.query);
         return tmdbMovies.map(transformTMDBMovie);
       } catch (error) {
-        throw handleError(error, 'Failed to search movies');
+        throw handleError(error, "Failed to search movies");
       }
     },
 
@@ -46,14 +46,18 @@ export const resolvers = {
         const tmdbMovies = await context.tmdb.discoverMovies(discoverParams);
         return tmdbMovies.map(transformTMDBMovie);
       } catch (error) {
-        throw handleError(error, 'Failed to discover movies');
+        throw handleError(error, "Failed to discover movies");
       }
     },
 
     suggestMovie: async (
       _: any,
       args: {
-        preferences?: { genres?: string[]; actors?: number[]; yearRange?: number[] };
+        preferences?: {
+          genres?: string[];
+          actors?: number[];
+          yearRange?: number[];
+        };
       },
       context: Context
     ): Promise<Movie> => {
@@ -72,13 +76,13 @@ export const resolvers = {
 
         if (tmdbMovies.length === 0) {
           throw new Error(
-            'No movies found matching your selections. Try different criteria.'
+            "No movies found matching your selections. Try different criteria."
           );
         }
 
         return transformTMDBMovie(pickRandomItem(tmdbMovies));
       } catch (error) {
-        throw handleError(error, 'Failed to suggest movie');
+        throw handleError(error, "Failed to suggest movie");
       }
     },
 
@@ -99,12 +103,12 @@ export const resolvers = {
         }
 
         if (tmdbMovies.length === 0) {
-          throw new Error('No movies found matching the criteria');
+          throw new Error("No movies found matching the criteria");
         }
 
         return transformTMDBMovie(pickRandomItem(tmdbMovies));
       } catch (error) {
-        throw handleError(error, 'Failed to shuffle movie');
+        throw handleError(error, "Failed to shuffle movie");
       }
     },
 
@@ -117,7 +121,7 @@ export const resolvers = {
         const tmdbPerson = await context.tmdb.getPerson(args.id);
         return transformTMDBPerson(tmdbPerson);
       } catch (error) {
-        throw handleError(error, 'Failed to fetch person');
+        throw handleError(error, "Failed to fetch person");
       }
     },
 
@@ -130,20 +134,16 @@ export const resolvers = {
         const tmdbPeople = await context.tmdb.searchPeople(args.query);
         return tmdbPeople.map(transformTMDBPerson);
       } catch (error) {
-        throw handleError(error, 'Failed to search people');
+        throw handleError(error, "Failed to search people");
       }
     },
 
-    randomMovie: async (
-      _: any,
-      __: any,
-      context: Context
-    ): Promise<Movie> => {
+    randomMovie: async (_: any, __: any, context: Context): Promise<Movie> => {
       try {
         const tmdbMovie = await context.tmdb.getRandomMovie();
         return transformTMDBMovie(tmdbMovie);
       } catch (error) {
-        throw handleError(error, 'Failed to get random movie');
+        throw handleError(error, "Failed to get random movie");
       }
     },
 
@@ -156,7 +156,7 @@ export const resolvers = {
         const tmdbPerson = await context.tmdb.getRandomPerson();
         return transformTMDBPerson(tmdbPerson);
       } catch (error) {
-        throw handleError(error, 'Failed to get random person');
+        throw handleError(error, "Failed to get random person");
       }
     },
   },

@@ -1,6 +1,6 @@
-import { PrismaClient } from '@prisma/client';
-import { Request, Response } from 'express';
-import { TMDBDataSource } from './datasources/tmdb';
+import { PrismaClient } from "@prisma/client";
+import { Request, Response } from "express";
+import { TMDBDataSource } from "./datasources/tmdb";
 
 const prisma = new PrismaClient();
 
@@ -20,7 +20,7 @@ export const createContext = async ({
 }): Promise<Context> => {
   const tmdbApiKey = process.env.TMDB_API_KEY;
   if (!tmdbApiKey) {
-    throw new Error('TMDB_API_KEY environment variable is required');
+    throw new Error("TMDB_API_KEY environment variable is required");
   }
 
   const tmdb = new TMDBDataSource(tmdbApiKey);
@@ -32,4 +32,3 @@ export const createContext = async ({
     res,
   };
 };
-

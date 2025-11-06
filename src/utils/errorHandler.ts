@@ -4,4 +4,3 @@ export function handleError(error: unknown, defaultMessage: string): Error {
   }
   return new Error(`${defaultMessage}: Unknown error`);
 }
-

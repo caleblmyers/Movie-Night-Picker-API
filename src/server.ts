@@ -1,12 +1,12 @@
-import express from 'express';
-import { ApolloServer } from '@apollo/server';
-import { expressMiddleware } from '@as-integrations/express5';
-import cors from 'cors';
-import bodyParser from 'body-parser';
-import dotenv from 'dotenv';
-import { typeDefs } from './schema';
-import { resolvers } from './resolvers';
-import { createContext } from './context';
+import express from "express";
+import { ApolloServer } from "@apollo/server";
+import { expressMiddleware } from "@as-integrations/express5";
+import cors from "cors";
+import bodyParser from "body-parser";
+import dotenv from "dotenv";
+import { typeDefs } from "./schema";
+import { resolvers } from "./resolvers";
+import { createContext } from "./context";
 
 // Load environment variables
 dotenv.config();
@@ -27,9 +27,9 @@ async function startServer() {
 
   // Apply CORS and body-parser middleware, then Apollo GraphQL middleware
   app.use(
-    '/graphql',
+    "/graphql",
     cors({
-      origin: process.env.FRONTEND_URL || '*',
+      origin: process.env.FRONTEND_URL || "*",
       credentials: true,
     }),
     bodyParser.json(),
@@ -39,17 +39,16 @@ async function startServer() {
   );
 
   // Health check endpoint
-  app.get('/health', (req, res) => {
-    res.json({ status: 'ok' });
+  app.get("/health", (req, res) => {
+    res.json({ status: "ok" });
   });
 
   app.listen(PORT, () => {
-    console.log('Movie Night Picker backend running on port 4000');
+    console.log("Movie Night Picker backend running on port 4000");
   });
 }
 
 startServer().catch((error) => {
-  console.error('Failed to start server:', error);
+  console.error("Failed to start server:", error);
   process.exit(1);
 });
-

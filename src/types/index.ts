@@ -24,4 +24,3 @@ export interface DiscoverParams {
   yearRange?: number[];
   actors?: number[];
 }
-

@@ -1,4 +1,4 @@
-import { DiscoverParams } from '../types';
+import { DiscoverParams } from "../types";
 
 export interface DiscoverFilters {
   genres?: string[];
@@ -39,9 +39,8 @@ export function shouldTryFallback(filters: DiscoverFilters): boolean {
 
 export function pickRandomItem<T>(items: T[]): T {
   if (items.length === 0) {
-    throw new Error('Cannot pick random item from empty array');
+    throw new Error("Cannot pick random item from empty array");
   }
   const randomIndex = Math.floor(Math.random() * items.length);
   return items[randomIndex];
 }
-
