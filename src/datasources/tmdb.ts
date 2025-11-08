@@ -6,6 +6,8 @@ const TMDB_BASE_URL = "https://api.themoviedb.org/3";
 export class TMDBDataSource {
   private client: AxiosInstance;
   private apiKey: string;
+  private readonly region = "US";
+  private readonly language = "en-US";
 
   constructor(apiKey: string) {
     this.apiKey = apiKey;
@@ -13,13 +15,20 @@ export class TMDBDataSource {
       baseURL: TMDB_BASE_URL,
       params: {
         api_key: this.apiKey,
+        region: this.region,
+        language: this.language,
       },
     });
   }
 
   async getMovie(movieId: number) {
     try {
-      const response = await this.client.get(`/movie/${movieId}`);
+      const response = await this.client.get(`/movie/${movieId}`, {
+        params: {
+          region: this.region,
+          language: this.language,
+        },
+      });
       return response.data;
     } catch (error: any) {
       throw handleTMDBError(error, "Failed to fetch movie from TMDB");
@@ -29,7 +38,11 @@ export class TMDBDataSource {
   async searchMovies(query: string) {
     try {
       const response = await this.client.get("/search/movie", {
-        params: { query },
+        params: {
+          query,
+          region: this.region,
+          language: this.language,
+        },
       });
       return response.data.results || [];
     } catch (error: any) {
@@ -68,7 +81,11 @@ export class TMDBDataSource {
       }
 
       const response = await this.client.get("/discover/movie", {
-        params: requestParams,
+        params: {
+          ...requestParams,
+          region: this.region,
+          language: this.language,
+        },
       });
       return response.data.results || [];
     } catch (error: any) {
@@ -103,6 +120,8 @@ export class TMDBDataSource {
         params: {
           sort_by: "popularity.desc",
           page: 1,
+          region: this.region,
+          language: this.language,
         },
       });
 
@@ -119,6 +138,8 @@ export class TMDBDataSource {
         params: {
           sort_by: "popularity.desc",
           page: randomPage,
+          region: this.region,
+          language: this.language,
         },
       });
 
