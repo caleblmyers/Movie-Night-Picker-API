@@ -9,6 +9,15 @@ export const movieSchema = gql`
     releaseDate: String
     voteAverage: Float
     voteCount: Int
+    # User-specific data (requires authentication, returns null if not authenticated or no data)
+    rating: Rating
+    review: Review
+    isSaved: Boolean!
+    inCollections: [Collection!]!
+    # All reviews and ratings for this movie
+    reviews: [Review!]!
+    ratings: [Rating!]!
+    averageUserRating: Float
   }
 
   input MoviePreferencesInput {

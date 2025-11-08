@@ -19,5 +19,11 @@ export const ERROR_MESSAGES = {
   PASSWORD_TOO_SHORT: `Password must be at least ${MIN_PASSWORD_LENGTH} characters long`,
   RATING_INVALID: `Rating must be between ${MIN_RATING} and ${MAX_RATING}`,
   REVIEW_EMPTY: "Review content cannot be empty",
+  COLLECTION_NOT_FOUND: "Collection not found",
+  COLLECTION_NAME_EMPTY: "Collection name cannot be empty",
+  COLLECTION_NO_ACCESS: "You don't have access to this collection",
+  COLLECTION_NO_PERMISSION: "You don't have permission to modify this collection",
+  NAME_CANNOT_BE_EMPTY: "Name cannot be empty",
+  USER_NOT_FOUND: "User not found",
 } as const;
 

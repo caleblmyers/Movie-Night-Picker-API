@@ -21,6 +21,7 @@ model User {
   savedMovies SavedMovie[]
   ratings   Rating[]
   reviews   Review[]
+  collections Collection[]
 }
 
 model MovieHistory {
@@ -69,5 +70,31 @@ model Review {
   
   @@unique([userId, tmdbId]) // One review per user per movie
   @@index([userId])
+  @@index([tmdbId])
+}
+
+model Collection {
+  id          Int      @id @default(autoincrement())
+  name        String
+  description String?
+  isPublic    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  userId      Int
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  movies      CollectionMovie[]
+  
+  @@index([userId])
+}
+
+model CollectionMovie {
+  id           Int        @id @default(autoincrement())
+  collectionId Int
+  collection   Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  tmdbId       Int        // TMDB movie ID
+  addedAt      DateTime   @default(now())
+  
+  @@unique([collectionId, tmdbId]) // Prevent duplicate movies in same collection
+  @@index([collectionId])
   @@index([tmdbId])
 }

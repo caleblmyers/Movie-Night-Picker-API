@@ -2,12 +2,43 @@ import { Context } from "../context";
 import { requireAuth } from "../utils/authHelpers";
 import { handleError } from "../utils/errorHandler";
 import { excludePassword } from "../utils/userHelpers";
+import { validateUserName } from "../utils/validationHelpers";
 import {
   SaveMovieArgs,
   RateMovieArgs,
   ReviewMovieArgs,
 } from "../types/resolvers";
 import { ERROR_MESSAGES, MIN_RATING, MAX_RATING } from "../constants";
+
+/**
+ * Helper function to fetch user's saved movies
+ */
+async function getUserSavedMovies(userId: number, prisma: Context["prisma"]) {
+  return prisma.savedMovie.findMany({
+    where: { userId },
+    orderBy: { createdAt: "desc" },
+  });
+}
+
+/**
+ * Helper function to fetch user's ratings
+ */
+async function getUserRatings(userId: number, prisma: Context["prisma"]) {
+  return prisma.rating.findMany({
+    where: { userId },
+    orderBy: { updatedAt: "desc" },
+  });
+}
+
+/**
+ * Helper function to fetch user's reviews
+ */
+async function getUserReviews(userId: number, prisma: Context["prisma"]) {
+  return prisma.review.findMany({
+    where: { userId },
+    orderBy: { updatedAt: "desc" },
+  });
+}
 
 export const userResolvers = {
   Query: {
@@ -16,40 +47,31 @@ export const userResolvers = {
       return excludePassword(user);
     },
 
-    mySavedMovies: async (
+    savedMovies: async (
       _parent: unknown,
       _args: unknown,
       context: Context
     ) => {
       const user = requireAuth(context);
-      return context.prisma.savedMovie.findMany({
-        where: { userId: user.id },
-        orderBy: { createdAt: "desc" },
-      });
+      return getUserSavedMovies(user.id, context.prisma);
     },
 
-    myRatings: async (
+    ratings: async (
       _parent: unknown,
       _args: unknown,
       context: Context
     ) => {
       const user = requireAuth(context);
-      return context.prisma.rating.findMany({
-        where: { userId: user.id },
-        orderBy: { updatedAt: "desc" },
-      });
+      return getUserRatings(user.id, context.prisma);
     },
 
-    myReviews: async (
+    reviews: async (
       _parent: unknown,
       _args: unknown,
       context: Context
     ) => {
       const user = requireAuth(context);
-      return context.prisma.review.findMany({
-        where: { userId: user.id },
-        orderBy: { updatedAt: "desc" },
-      });
+      return getUserReviews(user.id, context.prisma);
     },
   },
 
@@ -207,14 +229,12 @@ export const userResolvers = {
       const user = requireAuth(context);
 
       // Validate name
-      if (!args.name || !args.name.trim()) {
-        throw new Error("Name cannot be empty");
-      }
+      const trimmedName = validateUserName(args.name);
 
       try {
         const updatedUser = await context.prisma.user.update({
           where: { id: user.id },
-          data: { name: args.name.trim() },
+          data: { name: trimmedName },
         });
 
         return excludePassword(updatedUser);

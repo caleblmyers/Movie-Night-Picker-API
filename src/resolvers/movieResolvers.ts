@@ -7,7 +7,6 @@ import {
   shouldTryFallback,
   pickRandomItem,
 } from "../utils/discoverHelpers";
-import { Resolver } from "../types/resolvers";
 
 export const movieResolvers = {
   Query: {

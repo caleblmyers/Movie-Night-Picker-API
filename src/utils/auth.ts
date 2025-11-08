@@ -31,18 +31,13 @@ export async function verifyPassword(
  * Generate a JWT token for a user
  */
 export function generateToken(payload: JWTPayload): string {
-  console.log("[AUTH] Generating token for user:", payload.userId, payload.email);
-  console.log("[AUTH] JWT_SECRET configured:", !!JWT_SECRET);
-  console.log("[AUTH] JWT_EXPIRES_IN:", JWT_EXPIRES_IN);
-  
   try {
     const token = jwt.sign(payload, JWT_SECRET, {
       expiresIn: JWT_EXPIRES_IN,
     } as jwt.SignOptions);
-    console.log("[AUTH] Token generated successfully, length:", token.length);
     return token;
   } catch (error) {
-    console.error("[AUTH] Error generating token:", error);
+    console.error("Error generating token:", error);
     throw error;
   }
 }

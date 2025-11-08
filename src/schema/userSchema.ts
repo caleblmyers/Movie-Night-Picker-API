@@ -9,6 +9,7 @@ export const userSchema = gql`
     savedMovies: [SavedMovie!]!
     ratings: [Rating!]!
     reviews: [Review!]!
+    collections: [Collection!]!
   }
 
   type SavedMovie {
@@ -16,15 +17,19 @@ export const userSchema = gql`
     tmdbId: Int!
     createdAt: String!
     movie: Movie # Fetched from TMDB
+    # User's rating and review for this movie (requires authentication, returns null if not rated/reviewed)
+    rating: Rating
+    review: Review
   }
 
   type Rating {
     id: Int!
     tmdbId: Int!
-    rating: Int!
+    value: Int!
     createdAt: String!
     updatedAt: String!
     movie: Movie # Fetched from TMDB
+    user: User! # User who gave the rating
   }
 
   type Review {
@@ -34,14 +39,15 @@ export const userSchema = gql`
     createdAt: String!
     updatedAt: String!
     movie: Movie # Fetched from TMDB
+    user: User! # User who wrote the review
   }
 
   extend type Query {
     # User profile and saved movies (requires authentication)
     me: User
-    mySavedMovies: [SavedMovie!]!
-    myRatings: [Rating!]!
-    myReviews: [Review!]!
+    savedMovies: [SavedMovie!]!
+    ratings: [Rating!]!
+    reviews: [Review!]!
   }
 
   extend type Mutation {
@@ -64,4 +70,3 @@ export const userSchema = gql`
     updateName(name: String!): User!
   }
 `;
-

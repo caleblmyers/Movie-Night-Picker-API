@@ -3,6 +3,7 @@ import { movieSchema } from "./movieSchema";
 import { personSchema } from "./personSchema";
 import { authSchema } from "./authSchema";
 import { userSchema } from "./userSchema";
+import { collectionSchema } from "./collectionSchema";
 
 /**
  * Base schema with Query and Mutation types
@@ -27,4 +28,5 @@ export const typeDefs = [
   personSchema,
   authSchema,
   userSchema,
+  collectionSchema,
 ];

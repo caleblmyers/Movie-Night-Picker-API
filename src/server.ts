@@ -22,30 +22,12 @@ async function startServer() {
     resolvers,
     introspection: true, // Enable GraphQL playground in development
     formatError: (error) => {
-      console.error("[APOLLO ERROR] GraphQL Error:", error.message);
-      console.error("[APOLLO ERROR] Error path:", error.path);
-      console.error("[APOLLO ERROR] Error locations:", error.locations);
-      if ('originalError' in error && error.originalError) {
-        console.error("[APOLLO ERROR] Original error:", error.originalError);
-      }
-      if (error.extensions) {
-        console.error("[APOLLO ERROR] Error extensions:", JSON.stringify(error.extensions, null, 2));
-      }
+      console.error("GraphQL Error:", error.message);
       return error;
     },
   });
 
   await server.start();
-
-  // Request logging middleware
-  app.use("/graphql", (req, res, next) => {
-    console.log("[REQUEST] Incoming GraphQL request");
-    console.log("[REQUEST] Method:", req.method);
-    if (req.body) {
-      console.log("[REQUEST] Body:", JSON.stringify(req.body, null, 2));
-    }
-    next();
-  });
 
   // Apply CORS and body-parser middleware, then Apollo GraphQL middleware
   app.use(
