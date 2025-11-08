@@ -41,5 +41,23 @@ export interface TMDBOptions {
   includeAdult?: boolean;
 }
 
+/**
+ * GraphQL input type for TMDB options
+ * Matches the TMDBOptionsInput from the GraphQL schema
+ */
+export interface GraphQLOptionsInput {
+  region?: string;
+  language?: string;
+  sortBy?: string;
+  page?: number;
+  year?: number;
+  primaryReleaseYear?: number;
+  voteAverageGte?: number;
+  voteCountGte?: number;
+  withOriginalLanguage?: string;
+  withWatchProviders?: string;
+  includeAdult?: boolean;
+}
+
 // Re-export resolver types for convenience
 export * from "./resolvers";

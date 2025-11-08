@@ -1,6 +1,9 @@
 import { Context } from "../context";
 import { Movie } from "../types";
-import { transformTMDBMovie } from "./transformers";
+import {
+  transformTMDBMovie,
+  TMDBMovieResponse,
+} from "./transformers";
 
 /**
  * Fetch movie from TMDB by ID, returning null if not found
@@ -11,7 +14,7 @@ export async function fetchMovieFromTMDB(
 ): Promise<Movie | null> {
   try {
     const tmdbMovie = await context.tmdb.getMovie(tmdbId);
-    return transformTMDBMovie(tmdbMovie);
+    return transformTMDBMovie(tmdbMovie as TMDBMovieResponse);
   } catch (error) {
     // If movie not found in TMDB, return null
     return null;

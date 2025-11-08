@@ -1,9 +1,28 @@
-export function handleTMDBError(error: any, defaultMessage: string): Error {
-  if (error.response) {
-    const statusMessage = error.response.data?.status_message || error.message;
+interface AxiosErrorResponse {
+  response?: {
+    status: number;
+    data?: {
+      status_message?: string;
+    };
+  };
+  message?: string;
+}
+
+export function handleTMDBError(
+  error: unknown,
+  defaultMessage: string
+): Error {
+  const axiosError = error as AxiosErrorResponse;
+  
+  if (axiosError.response) {
+    const statusMessage =
+      axiosError.response.data?.status_message || axiosError.message;
     return new Error(
-      `TMDB API error: ${error.response.status} - ${statusMessage}`
+      `TMDB API error: ${axiosError.response.status} - ${statusMessage}`
     );
   }
-  return new Error(`${defaultMessage}: ${error.message || "Unknown error"}`);
+  
+  const errorMessage =
+    axiosError.message || (error instanceof Error ? error.message : "Unknown error");
+  return new Error(`${defaultMessage}: ${errorMessage}`);
 }

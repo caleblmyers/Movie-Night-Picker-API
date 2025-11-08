@@ -7,6 +7,7 @@ import {
   SaveMovieArgs,
   RateMovieArgs,
   ReviewMovieArgs,
+  UpdateNameArgs,
 } from "../types/resolvers";
 import { ERROR_MESSAGES, MIN_RATING, MAX_RATING } from "../constants";
 
@@ -223,7 +224,7 @@ export const userResolvers = {
 
     updateName: async (
       _parent: unknown,
-      args: { name: string },
+      args: UpdateNameArgs,
       context: Context
     ) => {
       const user = requireAuth(context);

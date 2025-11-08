@@ -1,6 +1,21 @@
 import { Context } from "../context";
-import { Movie, TMDBOptions } from "../types";
+import { Movie } from "../types";
+import {
+  GetMovieArgs,
+  SearchMoviesArgs,
+  DiscoverMoviesArgs,
+  SuggestMovieArgs,
+  ShuffleMovieArgs,
+  RandomMovieArgs,
+  TrendingMoviesArgs,
+  NowPlayingMoviesArgs,
+  PopularMoviesArgs,
+  TopRatedMoviesArgs,
+  ActorsFromFeaturedMoviesArgs,
+  CrewFromFeaturedMoviesArgs,
+} from "../types/resolvers";
 import { transformTMDBMovie } from "../utils/transformers";
+import type { TMDBMovieResponse } from "../utils/transformers";
 import { handleError } from "../utils/errorHandler";
 import {
   buildDiscoverParams,
@@ -15,45 +30,19 @@ import {
   ERA_OPTION_ICONS,
   GENRE_ICONS,
 } from "../constants";
-
-function convertGraphQLOptionsToTMDBOptions(
-  options?: any
-): TMDBOptions | undefined {
-  if (!options) return undefined;
-
-  const tmdbOptions: TMDBOptions = {};
-  if (options.region) tmdbOptions.region = options.region;
-  if (options.language) tmdbOptions.language = options.language;
-  if (options.sortBy) tmdbOptions.sortBy = options.sortBy;
-  if (options.page) tmdbOptions.page = options.page;
-  if (options.year) tmdbOptions.year = options.year;
-  if (options.primaryReleaseYear)
-    tmdbOptions.primaryReleaseYear = options.primaryReleaseYear;
-  if (options.voteAverageGte !== undefined)
-    tmdbOptions.voteAverageGte = options.voteAverageGte;
-  if (options.voteCountGte !== undefined)
-    tmdbOptions.voteCountGte = options.voteCountGte;
-  if (options.withOriginalLanguage)
-    tmdbOptions.withOriginalLanguage = options.withOriginalLanguage;
-  if (options.withWatchProviders)
-    tmdbOptions.withWatchProviders = options.withWatchProviders;
-  if (options.includeAdult !== undefined)
-    tmdbOptions.includeAdult = options.includeAdult;
-
-  return Object.keys(tmdbOptions).length > 0 ? tmdbOptions : undefined;
-}
+import { convertGraphQLOptionsToTMDBOptions } from "../utils/tmdbOptionsConverter";
 
 export const movieResolvers = {
   Query: {
     getMovie: async (
       _parent: unknown,
-      args: { id: number; options?: any },
+      args: GetMovieArgs,
       context: Context
     ): Promise<Movie> => {
       try {
         const options = convertGraphQLOptionsToTMDBOptions(args.options);
         const tmdbMovie = await context.tmdb.getMovie(args.id, options);
-        return transformTMDBMovie(tmdbMovie);
+        return transformTMDBMovie(tmdbMovie as TMDBMovieResponse);
       } catch (error) {
         throw handleError(error, "Failed to fetch movie");
       }
@@ -61,13 +50,15 @@ export const movieResolvers = {
 
     searchMovies: async (
       _parent: unknown,
-      args: { query: string; options?: any },
+      args: SearchMoviesArgs,
       context: Context
     ): Promise<Movie[]> => {
       try {
         const options = convertGraphQLOptionsToTMDBOptions(args.options);
         const tmdbMovies = await context.tmdb.searchMovies(args.query, options);
-        return tmdbMovies.map(transformTMDBMovie);
+        return tmdbMovies.map((m) =>
+          transformTMDBMovie(m as TMDBMovieResponse)
+        );
       } catch (error) {
         throw handleError(error, "Failed to search movies");
       }
@@ -75,13 +66,7 @@ export const movieResolvers = {
 
     discoverMovies: async (
       _parent: unknown,
-      args: {
-        genres?: number[];
-        yearRange?: number[];
-        cast?: number[];
-        crew?: number[];
-        options?: any;
-      },
+      args: DiscoverMoviesArgs,
       context: Context
     ): Promise<Movie[]> => {
       try {
@@ -106,7 +91,9 @@ export const movieResolvers = {
           discoverParams,
           options
         );
-        return tmdbMovies.map(transformTMDBMovie);
+        return tmdbMovies.map((m) =>
+          transformTMDBMovie(m as TMDBMovieResponse)
+        );
       } catch (error) {
         throw handleError(error, "Failed to discover movies");
       }
@@ -114,17 +101,7 @@ export const movieResolvers = {
 
     suggestMovie: async (
       _parent: unknown,
-      args: {
-        preferences?: {
-          genres?: number[];
-          actors?: number[];
-          crew?: number[];
-          yearRange?: number[];
-          mood?: string;
-          era?: string;
-          options?: any;
-        };
-      },
+      args: SuggestMovieArgs,
       context: Context
     ): Promise<Movie> => {
       try {
@@ -163,7 +140,9 @@ export const movieResolvers = {
           );
         }
 
-        return transformTMDBMovie(pickRandomItem(tmdbMovies));
+        return transformTMDBMovie(
+          pickRandomItem(tmdbMovies) as TMDBMovieResponse
+        );
       } catch (error) {
         throw handleError(error, "Failed to suggest movie");
       }
@@ -171,13 +150,7 @@ export const movieResolvers = {
 
     shuffleMovie: async (
       _parent: unknown,
-      args: {
-        genres?: number[];
-        yearRange?: number[];
-        cast?: number[];
-        crew?: number[];
-        options?: any;
-      },
+      args: ShuffleMovieArgs,
       context: Context
     ): Promise<Movie> => {
       try {
@@ -217,7 +190,9 @@ export const movieResolvers = {
           throw new Error("No movies found matching the criteria");
         }
 
-        return transformTMDBMovie(pickRandomItem(tmdbMovies));
+        return transformTMDBMovie(
+          pickRandomItem(tmdbMovies) as TMDBMovieResponse
+        );
       } catch (error) {
         throw handleError(error, "Failed to shuffle movie");
       }
@@ -225,13 +200,13 @@ export const movieResolvers = {
 
     randomMovie: async (
       _parent: unknown,
-      args: { options?: any },
+      args: RandomMovieArgs,
       context: Context
     ): Promise<Movie> => {
       try {
         const options = convertGraphQLOptionsToTMDBOptions(args.options);
         const tmdbMovie = await context.tmdb.getRandomMovie(options);
-        return transformTMDBMovie(tmdbMovie);
+        return transformTMDBMovie(tmdbMovie as TMDBMovieResponse);
       } catch (error) {
         throw handleError(error, "Failed to get random movie");
       }
@@ -239,7 +214,7 @@ export const movieResolvers = {
 
     trendingMovies: async (
       _parent: unknown,
-      args: { timeWindow?: "DAY" | "WEEK"; options?: any },
+      args: TrendingMoviesArgs,
       context: Context
     ): Promise<Movie[]> => {
       try {
@@ -251,7 +226,9 @@ export const movieResolvers = {
           timeWindow as "day" | "week",
           options
         );
-        return tmdbMovies.map(transformTMDBMovie);
+        return tmdbMovies.map((m) =>
+          transformTMDBMovie(m as TMDBMovieResponse)
+        );
       } catch (error) {
         throw handleError(error, "Failed to get trending movies");
       }
@@ -259,13 +236,15 @@ export const movieResolvers = {
 
     nowPlayingMovies: async (
       _parent: unknown,
-      args: { options?: any },
+      args: NowPlayingMoviesArgs,
       context: Context
     ): Promise<Movie[]> => {
       try {
         const options = convertGraphQLOptionsToTMDBOptions(args.options);
         const tmdbMovies = await context.tmdb.getNowPlayingMovies(options);
-        return tmdbMovies.map(transformTMDBMovie);
+        return tmdbMovies.map((m) =>
+          transformTMDBMovie(m as TMDBMovieResponse)
+        );
       } catch (error) {
         throw handleError(error, "Failed to get now playing movies");
       }
@@ -273,13 +252,15 @@ export const movieResolvers = {
 
     popularMovies: async (
       _parent: unknown,
-      args: { options?: any },
+      args: PopularMoviesArgs,
       context: Context
     ): Promise<Movie[]> => {
       try {
         const options = convertGraphQLOptionsToTMDBOptions(args.options);
         const tmdbMovies = await context.tmdb.getPopularMovies(options);
-        return tmdbMovies.map(transformTMDBMovie);
+        return tmdbMovies.map((m) =>
+          transformTMDBMovie(m as TMDBMovieResponse)
+        );
       } catch (error) {
         throw handleError(error, "Failed to get popular movies");
       }
@@ -287,13 +268,15 @@ export const movieResolvers = {
 
     topRatedMovies: async (
       _parent: unknown,
-      args: { options?: any },
+      args: TopRatedMoviesArgs,
       context: Context
     ): Promise<Movie[]> => {
       try {
         const options = convertGraphQLOptionsToTMDBOptions(args.options);
         const tmdbMovies = await context.tmdb.getTopRatedMovies(options);
-        return tmdbMovies.map(transformTMDBMovie);
+        return tmdbMovies.map((m) =>
+          transformTMDBMovie(m as TMDBMovieResponse)
+        );
       } catch (error) {
         throw handleError(error, "Failed to get top rated movies");
       }
@@ -318,7 +301,7 @@ export const movieResolvers = {
 
     actorsFromFeaturedMovies: async (
       _parent: unknown,
-      args: { options?: any },
+      args: ActorsFromFeaturedMoviesArgs,
       context: Context
     ) => {
       try {
@@ -333,9 +316,9 @@ export const movieResolvers = {
 
         // Extract movie IDs
         const movieIds = [
-          ...nowPlaying.map((m: any) => m.id),
-          ...popular.map((m: any) => m.id),
-          ...topRated.map((m: any) => m.id),
+          ...(nowPlaying as Array<{ id: number }>).map((m) => m.id),
+          ...(popular as Array<{ id: number }>).map((m) => m.id),
+          ...(topRated as Array<{ id: number }>).map((m) => m.id),
         ];
 
         // Extract unique actors
@@ -361,7 +344,7 @@ export const movieResolvers = {
 
     crewFromFeaturedMovies: async (
       _parent: unknown,
-      args: { options?: any },
+      args: CrewFromFeaturedMoviesArgs,
       context: Context
     ) => {
       try {
@@ -376,9 +359,9 @@ export const movieResolvers = {
 
         // Extract movie IDs
         const movieIds = [
-          ...nowPlaying.map((m: any) => m.id),
-          ...popular.map((m: any) => m.id),
-          ...topRated.map((m: any) => m.id),
+          ...(nowPlaying as Array<{ id: number }>).map((m) => m.id),
+          ...(popular as Array<{ id: number }>).map((m) => m.id),
+          ...(topRated as Array<{ id: number }>).map((m) => m.id),
         ];
 
         // Extract unique crew (directors/writers)

@@ -1,45 +1,28 @@
 import { Context } from "../context";
-import { Person, TMDBOptions } from "../types";
-import { transformTMDBPerson } from "../utils/transformers";
+import { Person } from "../types";
+import {
+  GetPersonArgs,
+  SearchPeopleArgs,
+  RandomPersonArgs,
+  TrendingPeopleArgs,
+} from "../types/resolvers";
+import {
+  transformTMDBPerson,
+  TMDBPersonResponse,
+} from "../utils/transformers";
 import { handleError } from "../utils/errorHandler";
-
-function convertGraphQLOptionsToTMDBOptions(
-  options?: any
-): TMDBOptions | undefined {
-  if (!options) return undefined;
-
-  const tmdbOptions: TMDBOptions = {};
-  if (options.region) tmdbOptions.region = options.region;
-  if (options.language) tmdbOptions.language = options.language;
-  if (options.sortBy) tmdbOptions.sortBy = options.sortBy;
-  if (options.page) tmdbOptions.page = options.page;
-  if (options.year) tmdbOptions.year = options.year;
-  if (options.primaryReleaseYear)
-    tmdbOptions.primaryReleaseYear = options.primaryReleaseYear;
-  if (options.voteAverageGte !== undefined)
-    tmdbOptions.voteAverageGte = options.voteAverageGte;
-  if (options.voteCountGte !== undefined)
-    tmdbOptions.voteCountGte = options.voteCountGte;
-  if (options.withOriginalLanguage)
-    tmdbOptions.withOriginalLanguage = options.withOriginalLanguage;
-  if (options.withWatchProviders)
-    tmdbOptions.withWatchProviders = options.withWatchProviders;
-  if (options.includeAdult !== undefined)
-    tmdbOptions.includeAdult = options.includeAdult;
-
-  return Object.keys(tmdbOptions).length > 0 ? tmdbOptions : undefined;
-}
+import { convertGraphQLOptionsToTMDBOptions } from "../utils/tmdbOptionsConverter";
 
 export const personResolvers = {
   Query: {
     getPerson: async (
       _parent: unknown,
-      args: { id: number },
+      args: GetPersonArgs,
       context: Context
     ): Promise<Person> => {
       try {
         const tmdbPerson = await context.tmdb.getPerson(args.id);
-        return transformTMDBPerson(tmdbPerson);
+        return transformTMDBPerson(tmdbPerson as TMDBPersonResponse);
       } catch (error) {
         throw handleError(error, "Failed to fetch person");
       }
@@ -47,7 +30,7 @@ export const personResolvers = {
 
     searchPeople: async (
       _parent: unknown,
-      args: { query: string; roleType?: "ACTOR" | "CREW" | "BOTH" },
+      args: SearchPeopleArgs,
       context: Context
     ): Promise<Person[]> => {
       try {
@@ -59,11 +42,13 @@ export const personResolvers = {
           roleType === "both"
             ? tmdbPeople
             : await context.tmdb.filterPeopleByRole(
-                tmdbPeople as Array<{ id: number }>,
-                roleType as "actor" | "crew" | "both"
+                (tmdbPeople as Array<{ id: number }>).map((p) => ({ id: p.id })),
+                roleType as "actor" | "crew"
               );
 
-        return filteredPeople.map(transformTMDBPerson);
+        return filteredPeople.map((p) =>
+          transformTMDBPerson(p as TMDBPersonResponse)
+        );
       } catch (error) {
         throw handleError(error, "Failed to search people");
       }
@@ -71,12 +56,12 @@ export const personResolvers = {
 
     randomPerson: async (
       _parent: unknown,
-      _args: unknown,
+      _args: RandomPersonArgs,
       context: Context
     ): Promise<Person> => {
       try {
         const tmdbPerson = await context.tmdb.getRandomPerson();
-        return transformTMDBPerson(tmdbPerson);
+        return transformTMDBPerson(tmdbPerson as TMDBPersonResponse);
       } catch (error) {
         throw handleError(error, "Failed to get random person");
       }
@@ -84,11 +69,7 @@ export const personResolvers = {
 
     trendingPeople: async (
       _parent: unknown,
-      args: {
-        timeWindow?: "DAY" | "WEEK";
-        roleType?: "ACTOR" | "CREW" | "BOTH";
-        options?: any;
-      },
+      args: TrendingPeopleArgs,
       context: Context
     ): Promise<Person[]> => {
       try {
@@ -107,11 +88,13 @@ export const personResolvers = {
           roleType === "both"
             ? tmdbPeople
             : await context.tmdb.filterPeopleByRole(
-                tmdbPeople as Array<{ id: number }>,
-                roleType as "actor" | "crew" | "both"
+                (tmdbPeople as Array<{ id: number }>).map((p) => ({ id: p.id })),
+                roleType as "actor" | "crew"
               );
 
-        return filteredPeople.map(transformTMDBPerson);
+        return filteredPeople.map((p) =>
+          transformTMDBPerson(p as TMDBPersonResponse)
+        );
       } catch (error) {
         throw handleError(error, "Failed to get trending people");
       }

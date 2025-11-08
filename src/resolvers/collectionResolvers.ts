@@ -3,6 +3,14 @@ import { requireAuth } from "../utils/authHelpers";
 import { handleError } from "../utils/errorHandler";
 import { verifyCollectionOwnership } from "../utils/dbHelpers";
 import { validateCollectionName } from "../utils/validationHelpers";
+import {
+  GetCollectionArgs,
+  CreateCollectionArgs,
+  UpdateCollectionArgs,
+  DeleteCollectionArgs,
+  AddMovieToCollectionArgs,
+  RemoveMovieFromCollectionArgs,
+} from "../types/resolvers";
 import { ERROR_MESSAGES } from "../constants";
 
 export const collectionResolvers = {
@@ -26,7 +34,7 @@ export const collectionResolvers = {
 
     getCollection: async (
       _parent: unknown,
-      args: { id: number },
+      args: GetCollectionArgs,
       context: Context
     ) => {
       const user = requireAuth(context);
@@ -55,11 +63,7 @@ export const collectionResolvers = {
   Mutation: {
     createCollection: async (
       _parent: unknown,
-      args: {
-        name: string;
-        description?: string | null;
-        isPublic?: boolean | null;
-      },
+      args: CreateCollectionArgs,
       context: Context
     ) => {
       const user = requireAuth(context);
@@ -83,12 +87,7 @@ export const collectionResolvers = {
 
     updateCollection: async (
       _parent: unknown,
-      args: {
-        id: number;
-        name?: string | null;
-        description?: string | null;
-        isPublic?: boolean | null;
-      },
+      args: UpdateCollectionArgs,
       context: Context
     ) => {
       const user = requireAuth(context);
@@ -127,7 +126,7 @@ export const collectionResolvers = {
 
     deleteCollection: async (
       _parent: unknown,
-      args: { id: number },
+      args: DeleteCollectionArgs,
       context: Context
     ): Promise<boolean> => {
       const user = requireAuth(context);
@@ -148,7 +147,7 @@ export const collectionResolvers = {
 
     addMovieToCollection: async (
       _parent: unknown,
-      args: { collectionId: number; tmdbId: number },
+      args: AddMovieToCollectionArgs,
       context: Context
     ) => {
       const user = requireAuth(context);
@@ -185,7 +184,7 @@ export const collectionResolvers = {
 
     removeMovieFromCollection: async (
       _parent: unknown,
-      args: { collectionId: number; tmdbId: number },
+      args: RemoveMovieFromCollectionArgs,
       context: Context
     ): Promise<boolean> => {
       const user = requireAuth(context);
