@@ -8,7 +8,13 @@ import {
   pickRandomItem,
   buildProgressiveFallbackParams,
 } from "../utils/discoverHelpers";
-import { MOVIE_VIBES, ERA_OPTIONS } from "../constants";
+import {
+  MOVIE_VIBES,
+  ERA_OPTIONS,
+  MOVIE_VIBE_ICONS,
+  ERA_OPTION_ICONS,
+  GENRE_ICONS,
+} from "../constants";
 
 function convertGraphQLOptionsToTMDBOptions(
   options?: any
@@ -300,7 +306,11 @@ export const movieResolvers = {
     ) => {
       try {
         const genres = await context.tmdb.getGenres();
-        return genres;
+        return genres.map((genre) => ({
+          id: genre.id,
+          name: genre.name,
+          icon: GENRE_ICONS[genre.id] || null,
+        }));
       } catch (error) {
         throw handleError(error, "Failed to get movie genres");
       }
@@ -400,15 +410,21 @@ export const movieResolvers = {
       try {
         const genres = await context.tmdb.getGenres();
         return {
-          genres: genres.map((g) => ({ id: g.id, name: g.name })),
+          genres: genres.map((g) => ({
+            id: g.id,
+            name: g.name,
+            icon: GENRE_ICONS[g.id] || null,
+          })),
           moods: MOVIE_VIBES.map((mood) => ({
             id: mood.id,
             label: mood.label,
+            icon: MOVIE_VIBE_ICONS[mood.id] || null,
           })),
           eras: ERA_OPTIONS.map((era) => ({
             id: era.id,
             label: era.label,
             value: era.value,
+            icon: ERA_OPTION_ICONS[era.id] || null,
           })),
         };
       } catch (error) {

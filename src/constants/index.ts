@@ -206,3 +206,113 @@ export function getEraYearRange(eraId: string): [number, number] | null {
   return eraMap[eraId] || null;
 }
 
+/**
+ * Movie vibe/mood icon mappings (Iconify icon identifiers)
+ */
+export const MOVIE_VIBE_ICONS: Record<string, string> = {
+  lighthearted: "lucide:smile",
+  intense: "lucide:flame",
+  emotional: "lucide:heart-crack",
+  dark: "lucide:moon",
+  wholesome: "lucide:heart",
+  suspenseful: "lucide:alert-triangle",
+  fantasy: "lucide:sparkles",
+  "true-story": "lucide:book-open-text",
+  cozy: "lucide:mug-hot",
+  uplifting: "lucide:sunrise",
+  gritty: "lucide:landscape",
+  "thought-provoking": "lucide:brain",
+  chaotic: "lucide:wind",
+  heartwarming: "lucide:heart-handshake",
+  somber: "lucide:cloud-drizzle",
+  playful: "lucide:ball",
+  nostalgic: "lucide:clock",
+  adventurous: "lucide:mountain",
+  mysterious: "lucide:eye",
+  "funny-comedic": "lucide:laugh",
+  dramatic: "lucide:theater",
+  atmospheric: "lucide:cloud",
+  "fast-paced": "lucide:fast-forward",
+  "slow-burn": "lucide:hourglass",
+  "feel-good": "lucide:sun",
+  "edge-of-your-seat": "lucide:zap",
+  "mind-bending": "lucide:orbit",
+  "chill-easy-watch": "lucide:couch",
+  "comfort-movie": "lucide:home",
+  "sci-fi": "lucide:alien",
+  historical: "lucide:scroll-text",
+  futuristic: "lucide:cpu",
+  supernatural: "lucide:ghost",
+  "crime-focused": "lucide:handcuffs",
+  survival: "lucide:axe",
+  "coming-of-age": "lucide:school",
+  "cult-classic-vibes": "lucide:star",
+  "indie-artsy": "lucide:palette",
+} as const;
+
+/**
+ * Era option icon mappings (Iconify icon identifiers)
+ */
+export const ERA_OPTION_ICONS: Record<string, string> = {
+  "70s-earlier": "lucide:radio",
+  "80s": "lucide:disc",
+  "90s": "lucide:gamepad",
+  "2000-2009": "lucide:music",
+  "2010-2019": "lucide:smartphone",
+  "2020-present": "lucide:film",
+  classic: "lucide:crown",
+  "older-great": "lucide:archive",
+  "newer-releases": "lucide:sparkles",
+  "golden-age": "lucide:star",
+  "retro-favorites": "lucide:album",
+  "vintage-gems": "lucide:gem",
+  "90s-nostalgia": "lucide:gamepad-2",
+  "early-2000s-feel": "lucide:flip-phone",
+  "modern-era": "lucide:laptop",
+  "fresh-recent": "lucide:sparkle",
+  "latest-trending": "lucide:trending-up",
+  throwbacks: "lucide:undo",
+  "timeless-picks": "lucide:infinity",
+  "recent-hits": "lucide:flame",
+  "hidden-old-school-finds": "lucide:treasure-chest",
+  "pre-cgi-era": "lucide:camera",
+  "streaming-era-films": "lucide:tv",
+  "blockbuster-era": "lucide:megaphone",
+  "contemporary-stories": "lucide:book-open",
+  "old-hollywood-style": "lucide:drama",
+  "feels-like-80s": "lucide:disc-3",
+  "feels-like-90s": "lucide:headphones",
+  "pre-millennium": "lucide:calendar-check",
+  "post-millennium": "lucide:calendar-days",
+  "pre-streaming-era": "lucide:clapperboard",
+  "streaming-era": "lucide:play",
+  "post-covid-era": "lucide:shield-check",
+  "late-night-classics": "lucide:moon-star",
+} as const;
+
+/**
+ * TMDB Genre icon mappings (Iconify icon identifiers)
+ * Using official TMDB Genre IDs
+ */
+export const GENRE_ICONS: Record<number, string> = {
+  28: "lucide:swords", // Action
+  12: "lucide:mountain", // Adventure
+  16: "lucide:palette", // Animation
+  35: "lucide:laugh", // Comedy
+  80: "lucide:handcuffs", // Crime
+  99: "lucide:book-open-check", // Documentary
+  18: "lucide:theater", // Drama
+  10751: "lucide:heart", // Family
+  14: "lucide:sparkles", // Fantasy
+  36: "lucide:scroll", // History
+  27: "lucide:ghost", // Horror
+  10402: "lucide:music", // Music
+  9648: "lucide:eye", // Mystery
+  10749: "lucide:heart", // Romance
+  878: "lucide:alien", // Sci-Fi
+  10770: "lucide:tv", // TV Movie
+  53: "lucide:alert-triangle", // Thriller
+  10752: "lucide:target", // War
+  37: "lucide:badge", // Western
+} as const;
+

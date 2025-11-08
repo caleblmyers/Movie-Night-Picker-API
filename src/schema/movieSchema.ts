@@ -126,6 +126,7 @@ export const movieSchema = gql`
   type Genre {
     id: Int!
     name: String!
+    icon: String
   }
 
   type MovieSelectionOptions {
@@ -137,12 +138,14 @@ export const movieSchema = gql`
   type MoodOption {
     id: String!
     label: String!
+    icon: String
   }
 
   type EraOption {
     id: String!
     label: String!
     value: String!
+    icon: String
   }
 
   enum TrendingTimeWindow {
