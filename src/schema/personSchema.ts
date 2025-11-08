@@ -17,10 +17,29 @@ export const personSchema = gql`
     getPerson(id: Int!): Person
 
     # Search people by query string
-    searchPeople(query: String!): [Person!]!
+    # roleType: Filter by "actor", "crew" (directors/writers), or "both" (default: "both")
+    searchPeople(
+      query: String!
+      roleType: PersonRoleType
+    ): [Person!]!
 
     # Get a completely random person
     randomPerson: Person
+
+    # Get trending people
+    # timeWindow: "day" or "week" (default: "day")
+    # roleType: Filter by "actor", "crew" (directors/writers), or "both" (default: "both")
+    trendingPeople(
+      timeWindow: TrendingTimeWindow
+      roleType: PersonRoleType
+      options: TMDBOptionsInput
+    ): [Person!]!
+  }
+
+  enum PersonRoleType {
+    ACTOR
+    CREW
+    BOTH
   }
 `;
 

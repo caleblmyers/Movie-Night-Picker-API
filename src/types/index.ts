@@ -20,9 +20,25 @@ export interface Person {
 }
 
 export interface DiscoverParams {
-  genres?: string[];
+  genres?: number[];
   yearRange?: number[];
   actors?: number[];
+  crew?: number[];
+  keywords?: number[];
+}
+
+export interface TMDBOptions {
+  region?: string;
+  language?: string;
+  sortBy?: string;
+  page?: number;
+  year?: number;
+  primaryReleaseYear?: number;
+  voteAverageGte?: number;
+  voteCountGte?: number;
+  withOriginalLanguage?: string;
+  withWatchProviders?: string;
+  includeAdult?: boolean;
 }
 
 // Re-export resolver types for convenience
