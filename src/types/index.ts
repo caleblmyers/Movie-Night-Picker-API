@@ -24,3 +24,6 @@ export interface DiscoverParams {
   yearRange?: number[];
   actors?: number[];
 }
+
+// Re-export resolver types for convenience
+export * from "./resolvers";
