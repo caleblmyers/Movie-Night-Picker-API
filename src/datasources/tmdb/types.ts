@@ -19,6 +19,7 @@ export const CACHE_TTL = {
   PERSON_CREDITS: 60 * 60 * 1000, // 1 hour
   MOVIE: 30 * 60 * 1000, // 30 minutes
   PERSON: 30 * 60 * 1000, // 30 minutes
+  SEARCH: 5 * 60 * 1000, // 5 minutes - short TTL for search results
 };
 
 export interface CacheEntry<T> {

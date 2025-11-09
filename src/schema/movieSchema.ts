@@ -15,6 +15,10 @@ export const movieSchema = gql`
     genres: [Genre!]!
     # Trailer information (if available)
     trailer: MovieTrailer
+    # Cast members (actors) - available when fetching full movie details
+    cast: [CastMember!]!
+    # Crew members (directors, writers, etc.) - available when fetching full movie details
+    crew: [CrewMember!]!
     # User-specific data (requires authentication, returns null if not authenticated or no data)
     rating: Rating
     review: Review
@@ -65,8 +69,10 @@ export const movieSchema = gql`
     # Get a single movie by TMDB ID
     getMovie(id: Int!, options: TMDBOptionsInput): Movie
 
-    # Search movies by query string
-    searchMovies(query: String!, options: TMDBOptionsInput): [Movie!]!
+    # Search movies by query string (smart search with fuzzy matching)
+    # TMDB automatically performs case-insensitive partial matching
+    # limit: Maximum number of results to return (default: 20, max: 100)
+    searchMovies(query: String!, limit: Int, options: TMDBOptionsInput): [Movie!]!
 
     # Discover movies with filters
     # cast: Only actors (filtered automatically)
@@ -174,6 +180,22 @@ export const movieSchema = gql`
     type: String
     # Full URL to play the trailer
     url: String!
+  }
+
+  type CastMember {
+    id: Int!
+    name: String!
+    character: String
+    profileUrl: String
+    order: Int
+  }
+
+  type CrewMember {
+    id: Int!
+    name: String!
+    job: String
+    department: String
+    profileUrl: String
   }
 `;
 

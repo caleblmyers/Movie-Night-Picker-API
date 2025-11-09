@@ -51,6 +51,7 @@ export interface GetMovieArgs {
 
 export interface SearchMoviesArgs {
   query: string;
+  limit?: number;
   options?: GraphQLOptionsInput;
 }
 

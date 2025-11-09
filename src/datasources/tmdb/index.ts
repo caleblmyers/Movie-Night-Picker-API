@@ -36,8 +36,8 @@ function applyMixins(derivedCtor: any, constructors: any[]) {
 export class TMDBDataSource extends TMDBClient {
   // Explicitly declare methods for TypeScript type checking
   // Movie methods
-  getMovie!: (movieId: number, options?: TMDBOptions) => Promise<unknown>;
-  searchMovies!: (query: string, options?: TMDBOptions) => Promise<unknown[]>;
+  getMovie!: (movieId: number, options?: TMDBOptions, includeCredits?: boolean) => Promise<unknown>;
+  searchMovies!: (query: string, limit?: number, options?: TMDBOptions) => Promise<unknown[]>;
   discoverMovies!: (params?: DiscoverParams, options?: TMDBOptions) => Promise<unknown[]>;
   getRandomMovie!: (options?: TMDBOptions) => Promise<unknown>;
   getTrendingMovies!: (timeWindow?: "day" | "week", options?: TMDBOptions) => Promise<unknown[]>;

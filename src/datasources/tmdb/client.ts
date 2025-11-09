@@ -55,6 +55,7 @@ export class TMDBClient {
   >();
   protected movieCache = new Map<number, CacheEntry<unknown>>();
   protected personCache = new Map<number, CacheEntry<unknown>>();
+  protected searchCache = new Map<string, CacheEntry<unknown[]>>();
 
   // Request deduplication - prevent duplicate concurrent requests
   protected pendingRequests = new Map<string, Promise<unknown>>();

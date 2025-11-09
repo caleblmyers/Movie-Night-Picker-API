@@ -9,27 +9,31 @@ import { DiscoverParams, DEFAULT_SORT_BY, CACHE_TTL } from "./types";
 export class MovieMethods extends TMDBClient {
   /**
    * Get a single movie by TMDB ID (with caching)
-   * Also fetches videos to include trailer information
+   * Also fetches videos and credits to include trailer and cast/crew information
    */
-  async getMovie(movieId: number, options?: TMDBOptions) {
+  async getMovie(movieId: number, options?: TMDBOptions, includeCredits: boolean = true) {
     // Only cache if no special options (options might change results)
     const shouldCache = !options || Object.keys(options).length === 0;
 
     const getMovieData = async () => {
-      // Fetch movie and videos in parallel
-      const [movieData, videosData] = await Promise.all([
+      // Fetch movie, videos, and credits in parallel for detail page
+      const [movieData, videosData, creditsData] = await Promise.all([
         this.makeRequest<Record<string, unknown>>(
           `/movie/${movieId}`,
           this.buildRequestParams(options),
           "Failed to fetch movie from TMDB"
         ),
         this.getMovieVideos(movieId).catch(() => ({ results: [] })), // Gracefully handle video fetch errors
+        includeCredits
+          ? this.getMovieCredits(movieId).catch(() => ({ cast: [], crew: [] })) // Gracefully handle credits fetch errors
+          : Promise.resolve({ cast: [], crew: [] }),
       ]);
 
-      // Combine movie data with videos
+      // Combine movie data with videos and credits
       return {
         ...movieData,
         videos: videosData.results || [],
+        credits: creditsData,
       };
     };
 
@@ -79,17 +83,47 @@ export class MovieMethods extends TMDBClient {
 
   /**
    * Search movies by query string
+   * TMDB's search API automatically performs case-insensitive partial matching (like ILIKE)
+   * Results are cached for 5 minutes to reduce API calls
    */
-  async searchMovies(query: string, options?: TMDBOptions) {
+  async searchMovies(query: string, limit?: number, options?: TMDBOptions) {
+    // Normalize query for caching (trim, lowercase)
+    const normalizedQuery = query.trim().toLowerCase();
+    const cacheKey = `search_${normalizedQuery}_${JSON.stringify(options || {})}`;
+    
+    // Check cache first
+    if (this.searchCache && this.isCacheValid(this.searchCache.get(cacheKey))) {
+      const cached = this.searchCache.get(cacheKey)!;
+      const results = cached.data as unknown[];
+      return limit ? results.slice(0, limit) : results;
+    }
+
+    // Make API request
     const response = await this.makeRequest<{ results?: unknown[] }>(
       "/search/movie",
       {
-        query,
+        query: query.trim(), // TMDB handles fuzzy matching automatically
         ...this.buildRequestParams(options),
+        page: 1, // Limit to first page for efficiency
       },
       "Failed to search movies from TMDB"
     );
-    return response.results || [];
+
+    const results = response.results || [];
+    
+    // Cache results (limit to first 20 for cache efficiency)
+    const resultsToCache = results.slice(0, 20);
+    if (!this.searchCache) {
+      this.searchCache = new Map();
+    }
+    this.searchCache.set(cacheKey, {
+      data: resultsToCache,
+      timestamp: Date.now(),
+      ttl: CACHE_TTL.SEARCH,
+    });
+
+    // Apply limit if specified
+    return limit ? results.slice(0, Math.min(limit, 100)) : results;
   }
 
   /**

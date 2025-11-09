@@ -198,13 +198,82 @@ export const fieldResolvers = {
 
       // Otherwise, fetch full movie details to get genres
       try {
-        const fullMovie = await context.tmdb.getMovie(movie.id);
+        const fullMovie = await context.tmdb.getMovie(movie.id, undefined, false);
         const genres = (fullMovie as { genres?: Array<{ id: number; name: string }> }).genres || [];
         return genres.map((genre) => ({
           id: genre.id,
           name: genre.name,
           icon: GENRE_ICONS[genre.id] || null,
         }));
+      } catch (error) {
+        return [];
+      }
+    },
+
+    cast: async (
+      movie: { id: number; cast?: Array<{ id: number; name: string; character?: string | null; profileUrl?: string | null; order?: number | null }> },
+      _args: unknown,
+      context: Context
+    ) => {
+      // If cast is already present, return it
+      if (movie.cast && movie.cast.length > 0) {
+        return movie.cast;
+      }
+
+      // Otherwise, fetch credits
+      try {
+        const credits = await context.tmdb.getMovieCredits(movie.id);
+        const cast = (credits.cast || []).slice(0, 20).map((member: { id: number; name: string; character?: string | null; profile_path?: string | null; order?: number | null }) => ({
+          id: member.id,
+          name: member.name,
+          character: member.character || null,
+          profileUrl: member.profile_path
+            ? `https://image.tmdb.org/t/p/w500${member.profile_path}`
+            : null,
+          order: member.order || null,
+        }));
+        return cast;
+      } catch (error) {
+        return [];
+      }
+    },
+
+    crew: async (
+      movie: { id: number; crew?: Array<{ id: number; name: string; job?: string | null; department?: string | null; profileUrl?: string | null }> },
+      _args: unknown,
+      context: Context
+    ) => {
+      // If crew is already present, return it
+      if (movie.crew && movie.crew.length > 0) {
+        return movie.crew;
+      }
+
+      // Otherwise, fetch credits
+      try {
+        const credits = await context.tmdb.getMovieCredits(movie.id);
+        const crew = (credits.crew || [])
+          .filter(
+            (member: { job?: string; department?: string }) =>
+              member.job === "Director" ||
+              member.department === "Directing" ||
+              member.job === "Writer" ||
+              member.department === "Writing" ||
+              member.job === "Screenplay" ||
+              member.job === "Story" ||
+              member.job === "Producer" ||
+              member.department === "Production"
+          )
+          .slice(0, 15)
+          .map((member: { id: number; name: string; job?: string | null; department?: string | null; profile_path?: string | null }) => ({
+            id: member.id,
+            name: member.name,
+            job: member.job || null,
+            department: member.department || null,
+            profileUrl: member.profile_path
+              ? `https://image.tmdb.org/t/p/w500${member.profile_path}`
+              : null,
+          }));
+        return crew;
       } catch (error) {
         return [];
       }

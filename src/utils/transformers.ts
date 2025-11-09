@@ -27,6 +27,23 @@ export interface TMDBMovieResponse {
   genres?: Array<{ id: number; name: string }>;
   // Videos can be either an array (from our getMovie method) or an object with results (from TMDB API)
   videos?: TMDBVideo[] | { results?: TMDBVideo[] };
+  // Credits for detail page
+  credits?: {
+    cast?: Array<{
+      id: number;
+      name: string;
+      character?: string | null;
+      profile_path?: string | null;
+      order?: number | null;
+    }>;
+    crew?: Array<{
+      id: number;
+      name: string;
+      job?: string | null;
+      department?: string | null;
+      profile_path?: string | null;
+    }>;
+  };
 }
 
 export interface TMDBPersonResponse {
@@ -126,6 +143,47 @@ export function transformTMDBMovie(
     }
     const trailer = extractTrailer(videos);
 
+    // Transform cast members
+    const cast = tmdbMovie.credits?.cast
+      ? tmdbMovie.credits.cast
+          .slice(0, 20) // Limit to top 20 cast members
+          .map((member) => ({
+            id: member.id,
+            name: member.name,
+            character: member.character || null,
+            profileUrl: member.profile_path
+              ? `${TMDB_IMAGE_BASE_URL}${member.profile_path}`
+              : null,
+            order: member.order || null,
+          }))
+      : [];
+
+    // Transform crew members (prioritize directors and writers)
+    const crew = tmdbMovie.credits?.crew
+      ? tmdbMovie.credits.crew
+          .filter(
+            (member) =>
+              member.job === "Director" ||
+              member.department === "Directing" ||
+              member.job === "Writer" ||
+              member.department === "Writing" ||
+              member.job === "Screenplay" ||
+              member.job === "Story" ||
+              member.job === "Producer" ||
+              member.department === "Production"
+          )
+          .slice(0, 15) // Limit to top 15 crew members
+          .map((member) => ({
+            id: member.id,
+            name: member.name,
+            job: member.job || null,
+            department: member.department || null,
+            profileUrl: member.profile_path
+              ? `${TMDB_IMAGE_BASE_URL}${member.profile_path}`
+              : null,
+          }))
+      : [];
+
     return {
       id: tmdbMovie.id,
       title: tmdbMovie.title,
@@ -139,6 +197,8 @@ export function transformTMDBMovie(
       runtime: tmdbMovie.runtime || null,
       genres: tmdbMovie.genres || [],
       trailer,
+      cast,
+      crew,
     };
   }
   
@@ -154,6 +214,8 @@ export function transformTMDBMovie(
     runtime: null,
     genres: [],
     trailer: null,
+    cast: [],
+    crew: [],
   };
 }
 

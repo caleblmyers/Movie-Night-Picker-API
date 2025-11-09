@@ -41,7 +41,8 @@ export const movieResolvers = {
     ): Promise<Movie> => {
       try {
         const options = convertGraphQLOptionsToTMDBOptions(args.options);
-        const tmdbMovie = await context.tmdb.getMovie(args.id, options);
+        // Always include credits for detail page
+        const tmdbMovie = await context.tmdb.getMovie(args.id, options, true);
         return transformTMDBMovie(tmdbMovie as TMDBMovieResponse);
       } catch (error) {
         throw handleError(error, "Failed to fetch movie");
@@ -54,8 +55,17 @@ export const movieResolvers = {
       context: Context
     ): Promise<Movie[]> => {
       try {
+        // Validate and set limit (default: 20, max: 100)
+        const limit = args.limit
+          ? Math.min(Math.max(1, args.limit), 100)
+          : 20;
+
         const options = convertGraphQLOptionsToTMDBOptions(args.options);
-        const tmdbMovies = await context.tmdb.searchMovies(args.query, options);
+        const tmdbMovies = await context.tmdb.searchMovies(
+          args.query,
+          limit,
+          options
+        );
         return tmdbMovies.map((m) =>
           transformTMDBMovie(m as TMDBMovieResponse)
         );

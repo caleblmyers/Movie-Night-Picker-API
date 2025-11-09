@@ -15,6 +15,20 @@ export interface Movie {
     type: string;
     url: string;
   } | null;
+  cast?: Array<{
+    id: number;
+    name: string;
+    character?: string | null;
+    profileUrl?: string | null;
+    order?: number | null;
+  }>;
+  crew?: Array<{
+    id: number;
+    name: string;
+    job?: string | null;
+    department?: string | null;
+    profileUrl?: string | null;
+  }>;
 }
 
 export interface Person {
