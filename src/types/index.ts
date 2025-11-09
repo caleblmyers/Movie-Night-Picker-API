@@ -6,6 +6,13 @@ export interface Movie {
   releaseDate?: string | null;
   voteAverage?: number | null;
   voteCount?: number | null;
+  trailer?: {
+    key: string;
+    site: string;
+    name: string;
+    type: string;
+    url: string;
+  } | null;
 }
 
 export interface Person {

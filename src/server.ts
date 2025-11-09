@@ -48,7 +48,7 @@ async function startServer() {
   });
 
   app.listen(PORT, () => {
-    console.log("Movie Night Picker backend running on port 4000");
+    console.log(`Movie Night Picker backend running on port ${PORT}`);
   });
 }
 

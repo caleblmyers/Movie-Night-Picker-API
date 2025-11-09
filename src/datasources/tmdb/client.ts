@@ -29,6 +29,23 @@ export class TMDBClient {
       crew?: Array<{ job?: string; department?: string }>;
     }>
   >();
+  protected movieVideosCache = new Map<
+    number,
+    CacheEntry<{
+      results?: Array<{
+        id: string;
+        iso_639_1?: string;
+        iso_3166_1?: string;
+        key: string;
+        name: string;
+        official?: boolean;
+        published_at?: string;
+        site: string;
+        size?: number;
+        type: string;
+      }>;
+    }>
+  >();
   protected personCreditsCache = new Map<
     number,
     CacheEntry<{

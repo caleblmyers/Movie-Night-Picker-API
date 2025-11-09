@@ -9,6 +9,8 @@ export const movieSchema = gql`
     releaseDate: String
     voteAverage: Float
     voteCount: Int
+    # Trailer information (if available)
+    trailer: MovieTrailer
     # User-specific data (requires authentication, returns null if not authenticated or no data)
     rating: Rating
     review: Review
@@ -151,6 +153,19 @@ export const movieSchema = gql`
   enum TrendingTimeWindow {
     DAY
     WEEK
+  }
+
+  type MovieTrailer {
+    # Video key/ID from the video platform (e.g., YouTube video ID)
+    key: String!
+    # Video platform site (e.g., "YouTube", "Vimeo")
+    site: String!
+    # Trailer name/title (optional)
+    name: String
+    # Video type (e.g., "Trailer", "Teaser") (optional)
+    type: String
+    # Full URL to play the trailer
+    url: String!
   }
 `;
 

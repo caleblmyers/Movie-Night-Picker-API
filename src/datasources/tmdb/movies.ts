@@ -9,10 +9,29 @@ import { DiscoverParams, DEFAULT_SORT_BY, CACHE_TTL } from "./types";
 export class MovieMethods extends TMDBClient {
   /**
    * Get a single movie by TMDB ID (with caching)
+   * Also fetches videos to include trailer information
    */
   async getMovie(movieId: number, options?: TMDBOptions) {
     // Only cache if no special options (options might change results)
     const shouldCache = !options || Object.keys(options).length === 0;
+
+    const getMovieData = async () => {
+      // Fetch movie and videos in parallel
+      const [movieData, videosData] = await Promise.all([
+        this.makeRequest<Record<string, unknown>>(
+          `/movie/${movieId}`,
+          this.buildRequestParams(options),
+          "Failed to fetch movie from TMDB"
+        ),
+        this.getMovieVideos(movieId).catch(() => ({ results: [] })), // Gracefully handle video fetch errors
+      ]);
+
+      // Combine movie data with videos
+      return {
+        ...movieData,
+        videos: videosData.results || [],
+      };
+    };
 
     if (shouldCache) {
       return this.getCachedOrRequest(
@@ -20,19 +39,41 @@ export class MovieMethods extends TMDBClient {
         this.movieCache,
         movieId,
         CACHE_TTL.MOVIE,
-        () =>
-          this.makeRequest(
-            `/movie/${movieId}`,
-            this.buildRequestParams(options),
-            "Failed to fetch movie from TMDB"
-          )
+        getMovieData
       );
     }
 
-    return this.makeRequest(
-      `/movie/${movieId}`,
-      this.buildRequestParams(options),
-      "Failed to fetch movie from TMDB"
+    return getMovieData();
+  }
+
+  /**
+   * Get movie videos (trailers, teasers, etc.) by movie ID (with caching)
+   */
+  async getMovieVideos(movieId: number) {
+    return this.getCachedOrRequest(
+      "movie_videos",
+      this.movieVideosCache,
+      movieId,
+      CACHE_TTL.MOVIE_CREDITS, // Use same TTL as credits
+      () =>
+        this.makeRequest<{
+          results?: Array<{
+            id: string;
+            iso_639_1?: string;
+            iso_3166_1?: string;
+            key: string;
+            name: string;
+            official?: boolean;
+            published_at?: string;
+            site: string;
+            size?: number;
+            type: string;
+          }>;
+        }>(
+          `/movie/${movieId}/videos`,
+          this.buildRequestParams(),
+          "Failed to fetch movie videos from TMDB"
+        )
     );
   }
 

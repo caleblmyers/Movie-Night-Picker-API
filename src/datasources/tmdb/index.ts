@@ -55,6 +55,20 @@ export class TMDBDataSource extends TMDBClient {
       profile_path?: string;
     }>;
   }>;
+  getMovieVideos!: (movieId: number) => Promise<{
+    results?: Array<{
+      id: string;
+      iso_639_1?: string;
+      iso_3166_1?: string;
+      key: string;
+      name: string;
+      official?: boolean;
+      published_at?: string;
+      site: string;
+      size?: number;
+      type: string;
+    }>;
+  }>;
   extractActorsFromMovies!: (movieIds: number[]) => Promise<Array<{ id: number; name: string; profile_path?: string }>>;
   extractCrewFromMovies!: (movieIds: number[]) => Promise<Array<{ id: number; name: string; profile_path?: string }>>;
 

@@ -140,9 +140,13 @@ export const movieResolvers = {
           );
         }
 
-        return transformTMDBMovie(
-          pickRandomItem(tmdbMovies) as TMDBMovieResponse
-        );
+        // Get the selected movie ID
+        const selectedMovie = pickRandomItem(tmdbMovies) as { id: number };
+        
+        // Fetch full movie details including videos/trailer
+        const fullMovie = await context.tmdb.getMovie(selectedMovie.id, options);
+        
+        return transformTMDBMovie(fullMovie as TMDBMovieResponse);
       } catch (error) {
         throw handleError(error, "Failed to suggest movie");
       }
@@ -190,9 +194,13 @@ export const movieResolvers = {
           throw new Error("No movies found matching the criteria");
         }
 
-        return transformTMDBMovie(
-          pickRandomItem(tmdbMovies) as TMDBMovieResponse
-        );
+        // Get the selected movie ID
+        const selectedMovie = pickRandomItem(tmdbMovies) as { id: number };
+        
+        // Fetch full movie details including videos/trailer
+        const fullMovie = await context.tmdb.getMovie(selectedMovie.id, options);
+        
+        return transformTMDBMovie(fullMovie as TMDBMovieResponse);
       } catch (error) {
         throw handleError(error, "Failed to shuffle movie");
       }
@@ -206,7 +214,14 @@ export const movieResolvers = {
       try {
         const options = convertGraphQLOptionsToTMDBOptions(args.options);
         const tmdbMovie = await context.tmdb.getRandomMovie(options);
-        return transformTMDBMovie(tmdbMovie as TMDBMovieResponse);
+        
+        // Get the selected movie ID
+        const movieId = (tmdbMovie as { id: number }).id;
+        
+        // Fetch full movie details including videos/trailer
+        const fullMovie = await context.tmdb.getMovie(movieId, options);
+        
+        return transformTMDBMovie(fullMovie as TMDBMovieResponse);
       } catch (error) {
         throw handleError(error, "Failed to get random movie");
       }

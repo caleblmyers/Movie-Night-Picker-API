@@ -7,6 +7,7 @@ import {
   isMovieSaved,
   calculateAverageRating,
 } from "../utils/dbHelpers";
+import { extractTrailer } from "../utils/transformers";
 
 export const fieldResolvers = {
   User: {
@@ -180,6 +181,25 @@ export const fieldResolvers = {
   },
 
   Movie: {
+    trailer: async (
+      movie: { id: number; trailer?: { key: string; site: string; name: string; type: string; url: string } | null },
+      _args: unknown,
+      context: Context
+    ) => {
+      // If trailer is already present, return it
+      if (movie.trailer) {
+        return movie.trailer;
+      }
+
+      // Otherwise, fetch videos for this movie
+      try {
+        const videos = await context.tmdb.getMovieVideos(movie.id);
+        return extractTrailer(videos.results || []);
+      } catch (error) {
+        return null;
+      }
+    },
+
     rating: async (movie: { id: number }, _args: unknown, context: Context) => {
       if (!context.user) {
         return null;
