@@ -61,6 +61,10 @@ export const movieSchema = gql`
     withOriginalLanguage: String
     # Filter by watch providers (comma-separated provider IDs)
     withWatchProviders: String
+    # Minimum popularity score
+    popularityGte: Float
+    # Maximum popularity score
+    popularityLte: Float
     # Include adult content (default: false)
     includeAdult: Boolean
   }
@@ -82,6 +86,20 @@ export const movieSchema = gql`
       yearRange: [Int!]
       cast: [Int!]
       crew: [Int!]
+      # Runtime range [min, max] in minutes
+      runtimeRange: [Int!]
+      # Streaming availability - comma-separated watch provider IDs
+      watchProviders: String
+      # Exclude genres by ID
+      excludeGenres: [Int!]
+      # Exclude cast members (actors) by person ID
+      excludeCast: [Int!]
+      # Exclude crew members by person ID
+      excludeCrew: [Int!]
+      # Popularity range [min, max] - TMDB popularity score
+      popularityRange: [Float!]
+      # Production countries - ISO 3166-1 alpha-2 country codes
+      originCountries: [String!]
       options: TMDBOptionsInput
     ): [Movie!]!
 
@@ -92,7 +110,8 @@ export const movieSchema = gql`
 
     # Shuffle/random movie (uses discover and returns one random result)
     # Accepts optional genres (as IDs), yearRange, cast (actors), crew (directors/writers),
-    # minVoteAverage, minVoteCount, runtimeRange, and originalLanguage
+    # minVoteAverage, minVoteCount, runtimeRange, originalLanguage, streaming providers,
+    # excludeGenres, excludeCast, excludeCrew, popularityRange, and originCountries
     # Returns null if no movies match the criteria
     shuffleMovie(
       genres: [Int!]
@@ -103,6 +122,18 @@ export const movieSchema = gql`
       minVoteCount: Int
       runtimeRange: [Int!]
       originalLanguage: String
+      # Streaming availability - comma-separated watch provider IDs (e.g., "8,9" for Netflix, Amazon Prime)
+      watchProviders: String
+      # Exclude genres by ID
+      excludeGenres: [Int!]
+      # Exclude cast members (actors) by person ID
+      excludeCast: [Int!]
+      # Exclude crew members by person ID
+      excludeCrew: [Int!]
+      # Popularity range [min, max] - TMDB popularity score
+      popularityRange: [Float!]
+      # Production countries - ISO 3166-1 alpha-2 country codes (e.g., ["US", "GB"])
+      originCountries: [String!]
     ): Movie
 
     # Get a completely random movie

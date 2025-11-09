@@ -91,12 +91,27 @@ export const movieResolvers = {
           : undefined;
 
         const discoverParams = buildDiscoverParams({
-          ...args,
+          genres: args.genres,
+          yearRange: args.yearRange,
           cast: actorIds,
           actors: actorIds,
           crew: crewIds,
+          runtimeRange: args.runtimeRange,
+          watchProviders: args.watchProviders,
+          excludeGenres: args.excludeGenres,
+          excludeCast: args.excludeCast,
+          excludeCrew: args.excludeCrew,
+          popularityRange: args.popularityRange,
+          originCountries: args.originCountries,
         });
-        const options = convertGraphQLOptionsToTMDBOptions(args.options);
+        
+        // Build options with popularity range if provided
+        const options = convertGraphQLOptionsToTMDBOptions({
+          ...args.options,
+          popularityGte: args.popularityRange?.[0],
+          popularityLte: args.popularityRange?.[1],
+        });
+        
         const tmdbMovies = await context.tmdb.discoverMovies(
           discoverParams,
           options
@@ -173,6 +188,8 @@ export const movieResolvers = {
           voteAverageGte: args.minVoteAverage,
           voteCountGte: args.minVoteCount,
           withOriginalLanguage: args.originalLanguage,
+          popularityGte: args.popularityRange?.[0],
+          popularityLte: args.popularityRange?.[1],
         });
 
         // Filter cast to only actors and crew to only directors/writers
@@ -183,7 +200,7 @@ export const movieResolvers = {
           ? await context.tmdb.filterToCrewOnly(args.crew)
           : undefined;
 
-        // Build discover params with genre IDs and runtime range
+        // Build discover params with all filters
         // yearRange should be [minYear, maxYear] format
         const discoverFilters = {
           genres: args.genres,
@@ -192,10 +209,16 @@ export const movieResolvers = {
           actors: actorIds,
           crew: crewIds,
           runtimeRange: args.runtimeRange,
+          watchProviders: args.watchProviders,
+          excludeGenres: args.excludeGenres,
+          excludeCast: args.excludeCast,
+          excludeCrew: args.excludeCrew,
+          popularityRange: args.popularityRange,
+          originCountries: args.originCountries,
         };
 
         // First attempt: try with ALL provided filters (AND logic - all must match)
-        // This ensures all parameters (genres, yearRange, cast, crew, runtimeRange, minVoteAverage, etc.) are used together
+        // This ensures all parameters are used together
         let discoverParams = buildDiscoverParams(discoverFilters, false);
         let tmdbMovies = await context.tmdb.discoverMovies(
           discoverParams,
@@ -205,8 +228,20 @@ export const movieResolvers = {
         // Only try fallback if:
         // 1. No results found
         // 2. We have multiple genres/actors/crew (can try with fewer)
-        // 3. We don't have strict filters like yearRange, runtimeRange, or vote filters (these should always be respected)
-        const hasStrictFilters = !!(args.yearRange || args.runtimeRange || args.minVoteAverage || args.minVoteCount || args.originalLanguage);
+        // 3. We don't have strict filters like yearRange, runtimeRange, vote filters, popularity, or exclusion filters (these should always be respected)
+        const hasStrictFilters = !!(
+          args.yearRange ||
+          args.runtimeRange ||
+          args.minVoteAverage ||
+          args.minVoteCount ||
+          args.originalLanguage ||
+          args.popularityRange ||
+          args.watchProviders ||
+          args.excludeGenres ||
+          args.excludeCast ||
+          args.excludeCrew ||
+          args.originCountries
+        );
         
         if (tmdbMovies.length === 0 && shouldTryFallback(discoverFilters) && !hasStrictFilters) {
           discoverParams = buildDiscoverParams(discoverFilters, true);

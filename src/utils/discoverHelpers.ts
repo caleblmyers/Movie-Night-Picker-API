@@ -11,6 +11,12 @@ export interface DiscoverFilters {
   era?: string;
   keywords?: number[];
   runtimeRange?: number[];
+  watchProviders?: string;
+  excludeGenres?: number[];
+  excludeCast?: number[];
+  excludeCrew?: number[];
+  popularityRange?: number[];
+  originCountries?: string[];
 }
 
 export function buildDiscoverParams(
@@ -68,6 +74,36 @@ export function buildDiscoverParams(
   // Handle runtime range
   if (filters.runtimeRange && filters.runtimeRange.length === 2) {
     params.runtimeRange = filters.runtimeRange;
+  }
+
+  // Handle watch providers
+  if (filters.watchProviders) {
+    params.watchProviders = filters.watchProviders;
+  }
+
+  // Handle exclude genres
+  if (filters.excludeGenres && filters.excludeGenres.length > 0) {
+    params.excludeGenres = filters.excludeGenres;
+  }
+
+  // Handle exclude cast
+  if (filters.excludeCast && filters.excludeCast.length > 0) {
+    params.excludeCast = filters.excludeCast;
+  }
+
+  // Handle exclude crew
+  if (filters.excludeCrew && filters.excludeCrew.length > 0) {
+    params.excludeCrew = filters.excludeCrew;
+  }
+
+  // Handle popularity range
+  if (filters.popularityRange && filters.popularityRange.length === 2) {
+    params.popularityRange = filters.popularityRange;
+  }
+
+  // Handle origin countries
+  if (filters.originCountries && filters.originCountries.length > 0) {
+    params.originCountries = filters.originCountries;
   }
 
   return params;

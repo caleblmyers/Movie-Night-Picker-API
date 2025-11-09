@@ -40,5 +40,11 @@ export interface DiscoverParams {
   crew?: number[];
   keywords?: number[];
   runtimeRange?: number[];
+  watchProviders?: string;
+  excludeGenres?: number[];
+  excludeCast?: number[];
+  excludeCrew?: number[];
+  popularityRange?: number[];
+  originCountries?: string[];
 }
 

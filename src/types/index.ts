@@ -49,6 +49,12 @@ export interface DiscoverParams {
   crew?: number[];
   keywords?: number[];
   runtimeRange?: number[];
+  watchProviders?: string;
+  excludeGenres?: number[];
+  excludeCast?: number[];
+  excludeCrew?: number[];
+  popularityRange?: number[];
+  originCountries?: string[];
 }
 
 export interface TMDBOptions {
@@ -63,6 +69,8 @@ export interface TMDBOptions {
   withOriginalLanguage?: string;
   withWatchProviders?: string;
   includeAdult?: boolean;
+  popularityGte?: number;
+  popularityLte?: number;
 }
 
 /**
@@ -81,6 +89,8 @@ export interface GraphQLOptionsInput {
   withOriginalLanguage?: string;
   withWatchProviders?: string;
   includeAdult?: boolean;
+  popularityGte?: number;
+  popularityLte?: number;
 }
 
 // Re-export resolver types for convenience

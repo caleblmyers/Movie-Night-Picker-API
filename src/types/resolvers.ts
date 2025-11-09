@@ -60,6 +60,13 @@ export interface DiscoverMoviesArgs {
   yearRange?: number[];
   cast?: number[];
   crew?: number[];
+  runtimeRange?: number[];
+  watchProviders?: string;
+  excludeGenres?: number[];
+  excludeCast?: number[];
+  excludeCrew?: number[];
+  popularityRange?: number[];
+  originCountries?: string[];
   options?: GraphQLOptionsInput;
 }
 
@@ -86,6 +93,12 @@ export interface ShuffleMovieArgs {
   minVoteCount?: number;
   runtimeRange?: number[];
   originalLanguage?: string;
+  watchProviders?: string;
+  excludeGenres?: number[];
+  excludeCast?: number[];
+  excludeCrew?: number[];
+  popularityRange?: number[];
+  originCountries?: string[];
 }
 
 export interface RandomMovieArgs {

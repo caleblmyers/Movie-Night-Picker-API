@@ -147,6 +147,12 @@ export class TMDBClient {
       ...(options?.withWatchProviders && {
         with_watch_providers: options.withWatchProviders,
       }),
+      ...(options?.popularityGte !== undefined && {
+        "popularity.gte": options.popularityGte,
+      }),
+      ...(options?.popularityLte !== undefined && {
+        "popularity.lte": options.popularityLte,
+      }),
       include_adult: options?.includeAdult ?? DEFAULT_INCLUDE_ADULT,
     };
   }
@@ -190,6 +196,40 @@ export class TMDBClient {
       // TMDB uses with_runtime_gte and with_runtime_lte for runtime filtering (in minutes)
       discoverParams.with_runtime_gte = params.runtimeRange[0];
       discoverParams.with_runtime_lte = params.runtimeRange[1];
+    }
+
+    if (params?.watchProviders) {
+      // TMDB uses with_watch_providers for streaming availability
+      // Comma-separated provider IDs (e.g., "8,9" for Netflix, Amazon Prime)
+      discoverParams.with_watch_providers = params.watchProviders;
+    }
+
+    if (params?.excludeGenres && params.excludeGenres.length > 0) {
+      // TMDB uses without_genres to exclude genres
+      // Using comma (,) for AND logic - movie must NOT have ANY of the specified genres
+      discoverParams.without_genres = params.excludeGenres.map(String).join(",");
+    }
+
+    if (params?.excludeCast && params.excludeCast.length > 0) {
+      // TMDB uses without_cast to exclude cast members
+      discoverParams.without_cast = params.excludeCast.join(",");
+    }
+
+    if (params?.excludeCrew && params.excludeCrew.length > 0) {
+      // TMDB uses without_crew to exclude crew members
+      discoverParams.without_crew = params.excludeCrew.join(",");
+    }
+
+    if (params?.popularityRange && params.popularityRange.length === 2) {
+      // TMDB uses popularity.gte and popularity.lte for popularity filtering
+      discoverParams["popularity.gte"] = params.popularityRange[0];
+      discoverParams["popularity.lte"] = params.popularityRange[1];
+    }
+
+    if (params?.originCountries && params.originCountries.length > 0) {
+      // TMDB uses with_origin_country for production countries
+      // Comma-separated ISO 3166-1 alpha-2 country codes (e.g., "US,GB")
+      discoverParams.with_origin_country = params.originCountries.join(",");
     }
 
     return discoverParams;
