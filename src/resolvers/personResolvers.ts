@@ -34,17 +34,35 @@ export const personResolvers = {
       context: Context
     ): Promise<Person[]> => {
       try {
-        const tmdbPeople = await context.tmdb.searchPeople(args.query);
+        // Validate and set limit (default: 20, max: 100)
+        // For autocomplete, typically 10-20 results is ideal
+        const limit = args.limit
+          ? Math.min(Math.max(1, args.limit), 100)
+          : 20;
+
+        const options = convertGraphQLOptionsToTMDBOptions(args.options);
+        const tmdbPeople = await context.tmdb.searchPeople(
+          args.query,
+          limit,
+          options
+        );
         const roleType = args.roleType?.toLowerCase() || "both";
 
         // Filter by role type if specified
-        const filteredPeople =
-          roleType === "both"
-            ? tmdbPeople
-            : await context.tmdb.filterPeopleByRole(
-                (tmdbPeople as Array<{ id: number }>).map((p) => ({ id: p.id })),
-                roleType as "actor" | "crew"
-              );
+        let filteredPeople = tmdbPeople;
+        if (roleType !== "both") {
+          // Get IDs of people that match the role type
+          const personIds = (tmdbPeople as Array<{ id: number }>).map((p) => p.id);
+          const filteredIds = await context.tmdb.filterPeopleByRole(
+            personIds.map((id) => ({ id })),
+            roleType as "actor" | "crew"
+          );
+          const filteredIdSet = new Set(filteredIds.map((p) => p.id));
+          // Keep only the full person objects that match the role
+          filteredPeople = (tmdbPeople as Array<{ id: number }>).filter((p) =>
+            filteredIdSet.has(p.id)
+          );
+        }
 
         return filteredPeople.map((p) =>
           transformTMDBPerson(p as TMDBPersonResponse)

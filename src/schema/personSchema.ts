@@ -16,11 +16,15 @@ export const personSchema = gql`
     # Get a single person by TMDB ID
     getPerson(id: Int!): Person
 
-    # Search people by query string
+    # Search people by query string (smart search with fuzzy matching)
+    # TMDB automatically performs case-insensitive partial matching
+    # limit: Maximum number of results to return (default: 20, max: 100)
     # roleType: Filter by "actor", "crew" (directors/writers), or "both" (default: "both")
     searchPeople(
       query: String!
+      limit: Int
       roleType: PersonRoleType
+      options: TMDBOptionsInput
     ): [Person!]!
 
     # Get a completely random person

@@ -74,7 +74,7 @@ export class TMDBDataSource extends TMDBClient {
 
   // People methods
   getPerson!: (personId: number) => Promise<unknown>;
-  searchPeople!: (query: string) => Promise<unknown[]>;
+  searchPeople!: (query: string, limit?: number, options?: TMDBOptions) => Promise<unknown[]>;
   getRandomPerson!: () => Promise<unknown>;
   getTrendingPeople!: (timeWindow?: "day" | "week", options?: TMDBOptions) => Promise<unknown[]>;
 

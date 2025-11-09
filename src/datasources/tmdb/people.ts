@@ -25,15 +25,48 @@ export class PeopleMethods extends TMDBClient {
   }
 
   /**
-   * Search people by query string
+   * Search people by query string (smart search with fuzzy matching)
+   * TMDB automatically performs case-insensitive partial matching
+   * Results are cached for 5 minutes to reduce API calls
    */
-  async searchPeople(query: string) {
+  async searchPeople(query: string, limit?: number, options?: import("../../types").TMDBOptions) {
+    // Normalize query for caching (trim, lowercase)
+    const normalizedQuery = query.trim().toLowerCase();
+    const cacheKey = `search_person_${normalizedQuery}_${JSON.stringify(options || {})}`;
+    
+    // Check cache first
+    if (this.searchCache && this.isCacheValid(this.searchCache.get(cacheKey))) {
+      const cached = this.searchCache.get(cacheKey)!;
+      const results = cached.data as unknown[];
+      return limit ? results.slice(0, limit) : results;
+    }
+
+    // Make API request
     const response = await this.makeRequest<{ results?: unknown[] }>(
       "/search/person",
-      { query },
+      {
+        query: query.trim(), // TMDB handles fuzzy matching automatically
+        ...this.buildRequestParams(options),
+        page: 1, // Limit to first page for efficiency
+      },
       "Failed to search people from TMDB"
     );
-    return response.results || [];
+
+    const results = response.results || [];
+    
+    // Cache results (limit to first 20 for cache efficiency)
+    const resultsToCache = results.slice(0, 20);
+    if (!this.searchCache) {
+      this.searchCache = new Map();
+    }
+    this.searchCache.set(cacheKey, {
+      data: resultsToCache,
+      timestamp: Date.now(),
+      ttl: CACHE_TTL.SEARCH,
+    });
+
+    // Apply limit if specified
+    return limit ? results.slice(0, Math.min(limit, 100)) : results;
   }
 
   /**

@@ -223,7 +223,8 @@ export function transformTMDBPerson(
   tmdbPerson: TMDBPersonResponse | { id: number }
 ): Person {
   // Type guard for full person response
-  if ("name" in tmdbPerson) {
+  // TMDB search results should always include 'name', but we check to be safe
+  if ("name" in tmdbPerson && tmdbPerson.name) {
     return {
       id: tmdbPerson.id,
       name: tmdbPerson.name,
@@ -238,7 +239,11 @@ export function transformTMDBPerson(
     };
   }
   
-  // Fallback for minimal person object (shouldn't happen, but type-safe)
+  // Fallback for minimal person object (shouldn't happen with proper search results)
+  // This indicates data was lost during processing (e.g., during role filtering)
+  console.warn(
+    `Person ${tmdbPerson.id} missing name field. This may indicate a data transformation issue.`
+  );
   return {
     id: tmdbPerson.id,
     name: "Unknown",

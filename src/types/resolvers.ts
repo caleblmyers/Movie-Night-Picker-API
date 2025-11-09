@@ -139,7 +139,9 @@ export interface GetPersonArgs {
 
 export interface SearchPeopleArgs {
   query: string;
+  limit?: number;
   roleType?: "ACTOR" | "CREW" | "BOTH";
+  options?: GraphQLOptionsInput;
 }
 
 export interface RandomPersonArgs {
