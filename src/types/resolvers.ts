@@ -55,6 +55,11 @@ export interface SearchMoviesArgs {
   options?: GraphQLOptionsInput;
 }
 
+export interface SearchKeywordsArgs {
+  query: string;
+  limit?: number;
+}
+
 export interface DiscoverMoviesArgs {
   genres?: number[];
   yearRange?: number[];
@@ -67,6 +72,7 @@ export interface DiscoverMoviesArgs {
   excludeCrew?: number[];
   popularityRange?: number[];
   originCountries?: string[];
+  keywordIds?: number[];
   options?: GraphQLOptionsInput;
 }
 
@@ -77,6 +83,7 @@ export interface MoviePreferencesInput {
   yearRange?: number[];
   mood?: string;
   era?: string;
+  keywordIds?: number[];
   inCollections?: number[];
   excludeCollections?: number[];
   notInAnyCollection?: boolean;
@@ -102,6 +109,7 @@ export interface ShuffleMovieArgs {
   excludeCrew?: number[];
   popularityRange?: number[];
   originCountries?: string[];
+  keywordIds?: number[];
   inCollections?: number[];
   excludeCollections?: number[];
   notInAnyCollection?: boolean;

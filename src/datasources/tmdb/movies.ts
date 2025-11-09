@@ -51,6 +51,26 @@ export class MovieMethods extends TMDBClient {
   }
 
   /**
+   * Get movie keywords by movie ID (with caching)
+   */
+  async getMovieKeywords(movieId: number) {
+    return this.getCachedOrRequest(
+      "movie_keywords",
+      this.movieKeywordsCache,
+      movieId,
+      CACHE_TTL.MOVIE_CREDITS, // Use same TTL as credits
+      () =>
+        this.makeRequest<{
+          keywords?: Array<{ id: number; name: string }>;
+        }>(
+          `/movie/${movieId}/keywords`,
+          this.buildRequestParams(),
+          "Failed to fetch movie keywords from TMDB"
+        )
+    );
+  }
+
+  /**
    * Get movie videos (trailers, teasers, etc.) by movie ID (with caching)
    */
   async getMovieVideos(movieId: number) {
@@ -240,6 +260,50 @@ export class MovieMethods extends TMDBClient {
       "Failed to get top rated movies from TMDB"
     );
     return response.results || [];
+  }
+
+  /**
+   * Search keywords by query string (smart search with fuzzy matching)
+   * TMDB automatically performs case-insensitive partial matching
+   * Results are cached for 24 hours to reduce API calls
+   */
+  async searchKeywords(query: string, limit?: number) {
+    // Normalize query for caching (trim, lowercase)
+    const normalizedQuery = query.trim().toLowerCase();
+    const cacheKey = `search_keyword_${normalizedQuery}`;
+    
+    // Check cache first (using searchCache)
+    if (this.searchCache && this.isCacheValid(this.searchCache.get(cacheKey))) {
+      const cached = this.searchCache.get(cacheKey)!;
+      const results = cached.data as unknown[];
+      return limit ? results.slice(0, limit) : results;
+    }
+
+    // Make API request
+    const response = await this.makeRequest<{ results?: Array<{ id: number; name: string }> }>(
+      "/search/keyword",
+      {
+        query: query.trim(), // TMDB handles fuzzy matching automatically
+        page: 1, // Limit to first page for efficiency
+      },
+      "Failed to search keywords from TMDB"
+    );
+
+    const results = response.results || [];
+    
+    // Cache results (limit to first 20 for cache efficiency)
+    const resultsToCache = results.slice(0, 20);
+    if (!this.searchCache) {
+      this.searchCache = new Map();
+    }
+    this.searchCache.set(cacheKey, {
+      data: resultsToCache,
+      timestamp: Date.now(),
+      ttl: CACHE_TTL.SEARCH * 24, // Cache keywords for 24 hours (longer than movie search)
+    });
+
+    // Apply limit if specified
+    return limit ? results.slice(0, Math.min(limit, 100)) : results;
   }
 
   /**

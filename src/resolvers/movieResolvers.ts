@@ -3,6 +3,7 @@ import { Movie } from "../types";
 import {
   GetMovieArgs,
   SearchMoviesArgs,
+  SearchKeywordsArgs,
   DiscoverMoviesArgs,
   SuggestMovieArgs,
   ShuffleMovieArgs,
@@ -79,6 +80,27 @@ export const movieResolvers = {
       }
     },
 
+    searchKeywords: async (
+      _parent: unknown,
+      args: SearchKeywordsArgs,
+      context: Context
+    ) => {
+      try {
+        // Validate and set limit (default: 20, max: 100)
+        const limit = args.limit
+          ? Math.min(Math.max(1, args.limit), 100)
+          : 20;
+
+        const keywords = await context.tmdb.searchKeywords(args.query, limit);
+        return keywords.map((k) => ({
+          id: k.id,
+          name: k.name,
+        }));
+      } catch (error) {
+        throw handleError(error, "Failed to search keywords");
+      }
+    },
+
     discoverMovies: async (
       _parent: unknown,
       args: DiscoverMoviesArgs,
@@ -108,6 +130,7 @@ export const movieResolvers = {
           excludeCrew: args.excludeCrew,
           popularityRange: args.popularityRange,
           originCountries: args.originCountries,
+          keywords: args.keywordIds,
         });
         
         // Build options with popularity range if provided
@@ -186,6 +209,7 @@ export const movieResolvers = {
           ...prefs,
           actors: actorIds,
           crew: crewIds,
+          keywords: prefs.keywordIds,
         };
 
         // Try progressive fallback: start with all parameters, remove one at a time if no results
@@ -302,6 +326,7 @@ export const movieResolvers = {
           excludeCrew: args.excludeCrew,
           popularityRange: args.popularityRange,
           originCountries: args.originCountries,
+          keywords: args.keywordIds,
         };
 
         // First attempt: try with ALL provided filters (AND logic - all must match)
@@ -326,7 +351,7 @@ export const movieResolvers = {
         // Only try fallback if:
         // 1. No results found
         // 2. We have multiple genres/actors/crew (can try with fewer)
-        // 3. We don't have strict filters like yearRange, runtimeRange, vote filters, popularity, exclusion filters, or collection filters (these should always be respected)
+        // 3. We don't have strict filters like yearRange, runtimeRange, vote filters, popularity, exclusion filters, keywords, or collection filters (these should always be respected)
         const hasStrictFilters = !!(
           args.yearRange ||
           args.runtimeRange ||
@@ -339,6 +364,7 @@ export const movieResolvers = {
           args.excludeCast ||
           args.excludeCrew ||
           args.originCountries ||
+          args.keywordIds ||
           args.inCollections ||
           args.excludeCollections ||
           args.notInAnyCollection

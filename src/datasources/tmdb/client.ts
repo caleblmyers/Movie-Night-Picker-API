@@ -46,6 +46,12 @@ export class TMDBClient {
       }>;
     }>
   >();
+  protected movieKeywordsCache = new Map<
+    number,
+    CacheEntry<{
+      keywords?: Array<{ id: number; name: string }>;
+    }>
+  >();
   protected personCreditsCache = new Map<
     number,
     CacheEntry<{

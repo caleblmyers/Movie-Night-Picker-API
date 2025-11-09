@@ -10,6 +10,7 @@ export interface DiscoverFilters {
   mood?: string;
   era?: string;
   keywords?: number[];
+  keywordIds?: number[]; // Alias for keywords for clarity
   runtimeRange?: number[];
   watchProviders?: string;
   excludeGenres?: number[];
@@ -63,12 +64,13 @@ export function buildDiscoverParams(
     }
   }
 
-  // Add explicit keywords if provided
-  if (filters.keywords && filters.keywords.length > 0) {
+  // Add explicit keywords if provided (support both keywords and keywordIds)
+  const keywordIds = filters.keywordIds || filters.keywords;
+  if (keywordIds && keywordIds.length > 0) {
     const existingKeywords = params.keywords || [];
     params.keywords = useSingle
-      ? [...existingKeywords, filters.keywords[0]]
-      : [...existingKeywords, ...filters.keywords];
+      ? [...existingKeywords, keywordIds[0]]
+      : [...existingKeywords, ...keywordIds];
   }
 
   // Handle runtime range

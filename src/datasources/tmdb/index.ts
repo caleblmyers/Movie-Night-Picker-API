@@ -38,6 +38,7 @@ export class TMDBDataSource extends TMDBClient {
   // Movie methods
   getMovie!: (movieId: number, options?: TMDBOptions, includeCredits?: boolean) => Promise<unknown>;
   searchMovies!: (query: string, limit?: number, options?: TMDBOptions) => Promise<unknown[]>;
+  searchKeywords!: (query: string, limit?: number) => Promise<Array<{ id: number; name: string }>>;
   discoverMovies!: (params?: DiscoverParams, options?: TMDBOptions) => Promise<unknown[]>;
   getRandomMovie!: (options?: TMDBOptions) => Promise<unknown>;
   getTrendingMovies!: (timeWindow?: "day" | "week", options?: TMDBOptions) => Promise<unknown[]>;
@@ -68,6 +69,9 @@ export class TMDBDataSource extends TMDBClient {
       size?: number;
       type: string;
     }>;
+  }>;
+  getMovieKeywords!: (movieId: number) => Promise<{
+    keywords?: Array<{ id: number; name: string }>;
   }>;
   extractActorsFromMovies!: (movieIds: number[]) => Promise<Array<{ id: number; name: string; profile_path?: string }>>;
   extractCrewFromMovies!: (movieIds: number[]) => Promise<Array<{ id: number; name: string; profile_path?: string }>>;

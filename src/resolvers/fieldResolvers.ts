@@ -218,6 +218,24 @@ export const fieldResolvers = {
       }
     },
 
+    keywords: async (
+      movie: { id: number },
+      _args: unknown,
+      context: Context
+    ) => {
+      try {
+        const keywordsData = await context.tmdb.getMovieKeywords(movie.id);
+        return (keywordsData.keywords || []).map((keyword) => ({
+          id: keyword.id,
+          name: keyword.name,
+        }));
+      } catch (error) {
+        // Return empty array on error rather than throwing
+        // This allows movie queries to succeed even if keywords fail
+        return [];
+      }
+    },
+
     cast: async (
       movie: { id: number; cast?: Array<{ id: number; name: string; character?: string | null; profileUrl?: string | null; order?: number | null }> },
       _args: unknown,

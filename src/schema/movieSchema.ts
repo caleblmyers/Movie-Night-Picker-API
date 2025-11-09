@@ -13,6 +13,8 @@ export const movieSchema = gql`
     runtime: Int
     # Genres (if available)
     genres: [Genre!]!
+    # Keywords/themes associated with the movie (e.g., "superhero", "time travel")
+    keywords: [Keyword!]!
     # Trailer information (if available)
     trailer: MovieTrailer
     # Cast members (actors) - available when fetching full movie details
@@ -37,6 +39,8 @@ export const movieSchema = gql`
     yearRange: [Int!]
     mood: String
     era: String
+    # Keyword IDs for thematic filtering (e.g., "superhero", "time travel")
+    keywordIds: [Int!]
     # Collection filtering options
     # Only include movies from these collection IDs
     inCollections: [Int!]
@@ -85,6 +89,11 @@ export const movieSchema = gql`
     # limit: Maximum number of results to return (default: 20, max: 100)
     searchMovies(query: String!, limit: Int, options: TMDBOptionsInput): [Movie!]!
 
+    # Search keywords by query string (for autocomplete in filter UI)
+    # TMDB automatically performs case-insensitive partial matching
+    # Returns keywords that can be used to filter movies
+    searchKeywords(query: String!, limit: Int): [Keyword!]!
+
     # Discover movies with filters
     # cast: Only actors (filtered automatically)
     # crew: Only directors/writers (filtered automatically)
@@ -107,6 +116,8 @@ export const movieSchema = gql`
       popularityRange: [Float!]
       # Production countries - ISO 3166-1 alpha-2 country codes
       originCountries: [String!]
+      # Keyword IDs for thematic filtering (e.g., "superhero", "time travel")
+      keywordIds: [Int!]
       options: TMDBOptionsInput
     ): [Movie!]!
 
@@ -141,6 +152,8 @@ export const movieSchema = gql`
       popularityRange: [Float!]
       # Production countries - ISO 3166-1 alpha-2 country codes (e.g., ["US", "GB"])
       originCountries: [String!]
+      # Keyword IDs for thematic filtering (e.g., "superhero", "time travel", "dystopia")
+      keywordIds: [Int!]
       # Collection filtering options
       # Only include movies from these collection IDs
       inCollections: [Int!]
@@ -241,6 +254,11 @@ export const movieSchema = gql`
     job: String
     department: String
     profileUrl: String
+  }
+
+  type Keyword {
+    id: Int!
+    name: String!
   }
 `;
 
