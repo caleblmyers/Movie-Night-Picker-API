@@ -10,6 +10,8 @@ export const personSchema = gql`
     placeOfBirth: String
     knownForDepartment: String
     popularity: Float
+    # Movies this person has credits for (both cast and crew roles)
+    movies: [Movie!]!
   }
 
   extend type Query {

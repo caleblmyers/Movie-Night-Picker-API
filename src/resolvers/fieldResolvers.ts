@@ -7,7 +7,7 @@ import {
   isMovieSaved,
   calculateAverageRating,
 } from "../utils/dbHelpers";
-import { extractTrailer } from "../utils/transformers";
+import { extractTrailer, transformTMDBMovie } from "../utils/transformers";
 import { GENRE_ICONS } from "../constants";
 
 export const fieldResolvers = {
@@ -411,6 +411,71 @@ export const fieldResolvers = {
         return calculateAverageRating(ratings);
       } catch (error) {
         return null;
+      }
+    },
+  },
+
+  Person: {
+    movies: async (
+      person: { id: number },
+      _args: unknown,
+      context: Context
+    ) => {
+      try {
+        // Fetch combined credits (cast and crew)
+        const credits = await context.tmdb.getPersonCombinedCredits(person.id);
+        
+        // Combine cast and crew arrays
+        const allCredits: Array<{ id: number; [key: string]: unknown }> = [];
+        
+        // Add cast credits (movies they acted in)
+        if (credits.cast && Array.isArray(credits.cast)) {
+          credits.cast.forEach((credit: unknown) => {
+            const movie = credit as { id?: number; media_type?: string };
+            // Only include movies (not TV shows)
+            if (movie.id && (!movie.media_type || movie.media_type === "movie")) {
+              allCredits.push(movie as { id: number; [key: string]: unknown });
+            }
+          });
+        }
+        
+        // Add crew credits (movies they worked on as crew)
+        if (credits.crew && Array.isArray(credits.crew)) {
+          credits.crew.forEach((credit: unknown) => {
+            const movie = credit as { id?: number; media_type?: string };
+            // Only include movies (not TV shows)
+            if (movie.id && (!movie.media_type || movie.media_type === "movie")) {
+              allCredits.push(movie as { id: number; [key: string]: unknown });
+            }
+          });
+        }
+        
+        // Remove duplicates by movie ID
+        const uniqueMovies = new Map<number, { id: number; [key: string]: unknown }>();
+        allCredits.forEach((movie) => {
+          if (!uniqueMovies.has(movie.id)) {
+            uniqueMovies.set(movie.id, movie);
+          }
+        });
+        
+        // Transform to Movie type
+        const movies = Array.from(uniqueMovies.values()).map((movie) =>
+          transformTMDBMovie(movie)
+        );
+        
+        // Sort by release date (most recent first)
+        movies.sort((a, b) => {
+          const dateA = a.releaseDate ? new Date(a.releaseDate).getTime() : 0;
+          const dateB = b.releaseDate ? new Date(b.releaseDate).getTime() : 0;
+          return dateB - dateA;
+        });
+        
+        return movies;
+      } catch (error) {
+        // Return empty array on error rather than throwing
+        // This allows person queries to succeed even if credits fail
+        console.error(`Failed to fetch movies for person ${person.id}:`, error);
+        return [];
       }
     },
   },
