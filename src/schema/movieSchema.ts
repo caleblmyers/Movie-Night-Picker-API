@@ -37,6 +37,13 @@ export const movieSchema = gql`
     yearRange: [Int!]
     mood: String
     era: String
+    # Collection filtering options
+    # Only include movies from these collection IDs
+    inCollections: [Int!]
+    # Exclude movies from these collection IDs
+    excludeCollections: [Int!]
+    # Only include movies not in any collection
+    notInAnyCollection: Boolean
     options: TMDBOptionsInput
   }
 
@@ -134,6 +141,13 @@ export const movieSchema = gql`
       popularityRange: [Float!]
       # Production countries - ISO 3166-1 alpha-2 country codes (e.g., ["US", "GB"])
       originCountries: [String!]
+      # Collection filtering options
+      # Only include movies from these collection IDs
+      inCollections: [Int!]
+      # Exclude movies from these collection IDs
+      excludeCollections: [Int!]
+      # Only include movies not in any collection
+      notInAnyCollection: Boolean
     ): Movie
 
     # Get a completely random movie

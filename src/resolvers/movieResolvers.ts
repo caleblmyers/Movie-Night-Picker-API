@@ -24,6 +24,11 @@ import {
   buildProgressiveFallbackParams,
 } from "../utils/discoverHelpers";
 import {
+  getMovieIdsFromCollections,
+  getAllMovieIdsInCollections,
+  filterMoviesByCollections,
+} from "../utils/collectionHelpers";
+import {
   MOVIE_VIBES,
   ERA_OPTIONS,
   MOVIE_VIBE_ICONS,
@@ -133,6 +138,41 @@ export const movieResolvers = {
         const prefs = args.preferences || {};
         const options = convertGraphQLOptionsToTMDBOptions(prefs.options);
 
+        // Get user for collection filtering (if needed)
+        const user = context.user;
+        let inCollectionIds: Set<number> | null = null;
+        let excludeCollectionIds: Set<number> | null = null;
+        let allCollectionMovieIds: Set<number> | null = null;
+
+        // Handle collection filtering if user is authenticated
+        if (user) {
+          if (prefs.inCollections && prefs.inCollections.length > 0) {
+            const movieIds = await getMovieIdsFromCollections(
+              context.prisma,
+              user.id,
+              prefs.inCollections
+            );
+            inCollectionIds = new Set(movieIds);
+          }
+
+          if (prefs.excludeCollections && prefs.excludeCollections.length > 0) {
+            const movieIds = await getMovieIdsFromCollections(
+              context.prisma,
+              user.id,
+              prefs.excludeCollections
+            );
+            excludeCollectionIds = new Set(movieIds);
+          }
+
+          if (prefs.notInAnyCollection) {
+            const movieIds = await getAllMovieIdsInCollections(
+              context.prisma,
+              user.id
+            );
+            allCollectionMovieIds = new Set(movieIds);
+          }
+        }
+
         // Filter actors and crew
         const actorIds = prefs.actors
           ? await context.tmdb.filterToActorsOnly(prefs.actors)
@@ -154,6 +194,18 @@ export const movieResolvers = {
 
         for (const discoverParams of fallbackParams) {
           tmdbMovies = await context.tmdb.discoverMovies(discoverParams, options);
+          
+          // Apply collection filtering
+          if (inCollectionIds || excludeCollectionIds || prefs.notInAnyCollection) {
+            tmdbMovies = filterMoviesByCollections(
+              tmdbMovies as Array<{ id: number }>,
+              inCollectionIds,
+              excludeCollectionIds,
+              prefs.notInAnyCollection || false,
+              allCollectionMovieIds
+            );
+          }
+          
           if (tmdbMovies.length > 0) {
             break; // Found results, stop trying
           }
@@ -192,6 +244,41 @@ export const movieResolvers = {
           popularityLte: args.popularityRange?.[1],
         });
 
+        // Get user for collection filtering (if needed)
+        const user = context.user;
+        let inCollectionIds: Set<number> | null = null;
+        let excludeCollectionIds: Set<number> | null = null;
+        let allCollectionMovieIds: Set<number> | null = null;
+
+        // Handle collection filtering if user is authenticated
+        if (user) {
+          if (args.inCollections && args.inCollections.length > 0) {
+            const movieIds = await getMovieIdsFromCollections(
+              context.prisma,
+              user.id,
+              args.inCollections
+            );
+            inCollectionIds = new Set(movieIds);
+          }
+
+          if (args.excludeCollections && args.excludeCollections.length > 0) {
+            const movieIds = await getMovieIdsFromCollections(
+              context.prisma,
+              user.id,
+              args.excludeCollections
+            );
+            excludeCollectionIds = new Set(movieIds);
+          }
+
+          if (args.notInAnyCollection) {
+            const movieIds = await getAllMovieIdsInCollections(
+              context.prisma,
+              user.id
+            );
+            allCollectionMovieIds = new Set(movieIds);
+          }
+        }
+
         // Filter cast to only actors and crew to only directors/writers
         const actorIds = args.cast
           ? await context.tmdb.filterToActorsOnly(args.cast)
@@ -225,10 +312,21 @@ export const movieResolvers = {
           options
         );
 
+        // Apply collection filtering
+        if (inCollectionIds || excludeCollectionIds || args.notInAnyCollection) {
+          tmdbMovies = filterMoviesByCollections(
+            tmdbMovies as Array<{ id: number }>,
+            inCollectionIds,
+            excludeCollectionIds,
+            args.notInAnyCollection || false,
+            allCollectionMovieIds
+          );
+        }
+
         // Only try fallback if:
         // 1. No results found
         // 2. We have multiple genres/actors/crew (can try with fewer)
-        // 3. We don't have strict filters like yearRange, runtimeRange, vote filters, popularity, or exclusion filters (these should always be respected)
+        // 3. We don't have strict filters like yearRange, runtimeRange, vote filters, popularity, exclusion filters, or collection filters (these should always be respected)
         const hasStrictFilters = !!(
           args.yearRange ||
           args.runtimeRange ||
@@ -240,7 +338,10 @@ export const movieResolvers = {
           args.excludeGenres ||
           args.excludeCast ||
           args.excludeCrew ||
-          args.originCountries
+          args.originCountries ||
+          args.inCollections ||
+          args.excludeCollections ||
+          args.notInAnyCollection
         );
         
         if (tmdbMovies.length === 0 && shouldTryFallback(discoverFilters) && !hasStrictFilters) {
@@ -249,6 +350,17 @@ export const movieResolvers = {
             discoverParams,
             options
           );
+          
+          // Apply collection filtering to fallback results too
+          if (inCollectionIds || excludeCollectionIds || args.notInAnyCollection) {
+            tmdbMovies = filterMoviesByCollections(
+              tmdbMovies as Array<{ id: number }>,
+              inCollectionIds,
+              excludeCollectionIds,
+              args.notInAnyCollection || false,
+              allCollectionMovieIds
+            );
+          }
         }
 
         if (tmdbMovies.length === 0) {

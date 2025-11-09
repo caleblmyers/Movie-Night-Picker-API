@@ -11,6 +11,46 @@ export const collectionSchema = gql`
     user: User!
     movies: [CollectionMovie!]!
     movieCount: Int!
+    # Analytics and insights about the collection
+    insights: CollectionInsights!
+  }
+
+  type CollectionInsights {
+    # Total number of movies in the collection
+    totalMovies: Int!
+    # Number of unique genres
+    uniqueGenres: Int!
+    # Breakdown of movies by genre
+    moviesByGenre: [GenreCount!]!
+    # Number of unique actors
+    uniqueActors: Int!
+    # Top actors by number of movies
+    topActors: [PersonCount!]!
+    # Number of unique directors/writers
+    uniqueCrew: Int!
+    # Top directors/writers by number of movies
+    topCrew: [PersonCount!]!
+    # Year range of movies
+    yearRange: YearRange
+    # Average runtime
+    averageRuntime: Float
+    # Average vote average
+    averageVoteAverage: Float
+  }
+
+  type GenreCount {
+    genre: Genre!
+    count: Int!
+  }
+
+  type PersonCount {
+    person: Person!
+    count: Int!
+  }
+
+  type YearRange {
+    min: Int!
+    max: Int!
   }
 
   type CollectionMovie {
@@ -26,6 +66,9 @@ export const collectionSchema = gql`
 
     # Get a single collection by ID (must be owner or public)
     getCollection(id: Int!): Collection
+
+    # Get insights/analytics for a collection
+    collectionInsights(collectionId: Int!): CollectionInsights!
   }
 
   extend type Mutation {

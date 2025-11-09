@@ -3,6 +3,7 @@ import { requireAuth } from "../utils/authHelpers";
 import { handleError } from "../utils/errorHandler";
 import { verifyCollectionOwnership } from "../utils/dbHelpers";
 import { validateCollectionName } from "../utils/validationHelpers";
+import { calculateCollectionInsights } from "../utils/collectionInsights";
 import {
   GetCollectionArgs,
   CreateCollectionArgs,
@@ -10,6 +11,7 @@ import {
   DeleteCollectionArgs,
   AddMovieToCollectionArgs,
   RemoveMovieFromCollectionArgs,
+  CollectionInsightsArgs,
 } from "../types/resolvers";
 import { ERROR_MESSAGES } from "../constants";
 
@@ -56,6 +58,33 @@ export const collectionResolvers = {
         return collection;
       } catch (error) {
         throw handleError(error, "Failed to fetch collection");
+      }
+    },
+
+    collectionInsights: async (
+      _parent: unknown,
+      args: CollectionInsightsArgs,
+      context: Context
+    ) => {
+      const user = requireAuth(context);
+
+      try {
+        // Verify collection exists and user has access
+        const collection = await context.prisma.collection.findUnique({
+          where: { id: args.collectionId },
+        });
+
+        if (!collection) {
+          throw new Error(ERROR_MESSAGES.COLLECTION_NOT_FOUND);
+        }
+
+        if (collection.userId !== user.id && !collection.isPublic) {
+          throw new Error(ERROR_MESSAGES.COLLECTION_NO_ACCESS);
+        }
+
+        return calculateCollectionInsights(args.collectionId, context);
+      } catch (error) {
+        throw handleError(error, "Failed to fetch collection insights");
       }
     },
   },

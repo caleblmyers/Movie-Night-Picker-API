@@ -9,6 +9,7 @@ import {
 } from "../utils/dbHelpers";
 import { extractTrailer, transformTMDBMovie } from "../utils/transformers";
 import { GENRE_ICONS } from "../constants";
+import { calculateCollectionInsights } from "../utils/collectionInsights";
 
 export const fieldResolvers = {
   User: {
@@ -166,6 +167,13 @@ export const fieldResolvers = {
       return context.prisma.collectionMovie.count({
         where: { collectionId: collection.id },
       });
+    },
+    insights: async (
+      collection: { id: number },
+      _args: unknown,
+      context: Context
+    ) => {
+      return calculateCollectionInsights(collection.id, context);
     },
   },
 

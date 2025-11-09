@@ -77,6 +77,9 @@ export interface MoviePreferencesInput {
   yearRange?: number[];
   mood?: string;
   era?: string;
+  inCollections?: number[];
+  excludeCollections?: number[];
+  notInAnyCollection?: boolean;
   options?: GraphQLOptionsInput;
 }
 
@@ -99,6 +102,9 @@ export interface ShuffleMovieArgs {
   excludeCrew?: number[];
   popularityRange?: number[];
   originCountries?: string[];
+  inCollections?: number[];
+  excludeCollections?: number[];
+  notInAnyCollection?: boolean;
 }
 
 export interface RandomMovieArgs {
@@ -166,6 +172,10 @@ export interface UpdateNameArgs {
  */
 export interface GetCollectionArgs {
   id: number;
+}
+
+export interface CollectionInsightsArgs {
+  collectionId: number;
 }
 
 /**
