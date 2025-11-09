@@ -156,9 +156,14 @@ export const movieResolvers = {
       _parent: unknown,
       args: ShuffleMovieArgs,
       context: Context
-    ): Promise<Movie> => {
+    ): Promise<Movie | null> => {
       try {
-        const options = convertGraphQLOptionsToTMDBOptions(args.options);
+        // Build TMDB options with new parameters
+        const options = convertGraphQLOptionsToTMDBOptions({
+          voteAverageGte: args.minVoteAverage,
+          voteCountGte: args.minVoteCount,
+          withOriginalLanguage: args.originalLanguage,
+        });
 
         // Filter cast to only actors and crew to only directors/writers
         const actorIds = args.cast
@@ -168,22 +173,33 @@ export const movieResolvers = {
           ? await context.tmdb.filterToCrewOnly(args.crew)
           : undefined;
 
-        // First attempt: try with all provided genres, cast, and crew
-        let discoverParams = buildDiscoverParams(
-          { ...args, cast: actorIds, actors: actorIds, crew: crewIds },
-          false
-        );
+        // Build discover params with genre IDs and runtime range
+        // yearRange should be [minYear, maxYear] format
+        const discoverFilters = {
+          genres: args.genres,
+          yearRange: args.yearRange,
+          cast: actorIds,
+          actors: actorIds,
+          crew: crewIds,
+          runtimeRange: args.runtimeRange,
+        };
+
+        // First attempt: try with ALL provided filters (AND logic - all must match)
+        // This ensures all parameters (genres, yearRange, cast, crew, runtimeRange, minVoteAverage, etc.) are used together
+        let discoverParams = buildDiscoverParams(discoverFilters, false);
         let tmdbMovies = await context.tmdb.discoverMovies(
           discoverParams,
           options
         );
 
-        // If no results and we have multiple genres, cast, or crew, try with only one of each
-        if (tmdbMovies.length === 0 && shouldTryFallback(args)) {
-          discoverParams = buildDiscoverParams(
-            { ...args, cast: actorIds, actors: actorIds, crew: crewIds },
-            true
-          );
+        // Only try fallback if:
+        // 1. No results found
+        // 2. We have multiple genres/actors/crew (can try with fewer)
+        // 3. We don't have strict filters like yearRange, runtimeRange, or vote filters (these should always be respected)
+        const hasStrictFilters = !!(args.yearRange || args.runtimeRange || args.minVoteAverage || args.minVoteCount || args.originalLanguage);
+        
+        if (tmdbMovies.length === 0 && shouldTryFallback(discoverFilters) && !hasStrictFilters) {
+          discoverParams = buildDiscoverParams(discoverFilters, true);
           tmdbMovies = await context.tmdb.discoverMovies(
             discoverParams,
             options
@@ -191,7 +207,7 @@ export const movieResolvers = {
         }
 
         if (tmdbMovies.length === 0) {
-          throw new Error("No movies found matching the criteria");
+          return null;
         }
 
         // Get the selected movie ID

@@ -10,6 +10,7 @@ export interface DiscoverFilters {
   mood?: string;
   era?: string;
   keywords?: number[];
+  runtimeRange?: number[];
 }
 
 export function buildDiscoverParams(
@@ -23,6 +24,7 @@ export function buildDiscoverParams(
   }
 
   // Handle yearRange - either explicit or from era
+  // IMPORTANT: yearRange should always be preserved, even during fallback (useSingle)
   if (filters.yearRange && filters.yearRange.length === 2) {
     params.yearRange = filters.yearRange;
   } else if (filters.era) {
@@ -61,6 +63,11 @@ export function buildDiscoverParams(
     params.keywords = useSingle
       ? [...existingKeywords, filters.keywords[0]]
       : [...existingKeywords, ...filters.keywords];
+  }
+
+  // Handle runtime range
+  if (filters.runtimeRange && filters.runtimeRange.length === 2) {
+    params.runtimeRange = filters.runtimeRange;
   }
 
   return params;

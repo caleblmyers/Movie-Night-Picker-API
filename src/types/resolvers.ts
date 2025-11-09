@@ -81,7 +81,10 @@ export interface ShuffleMovieArgs {
   yearRange?: number[];
   cast?: number[];
   crew?: number[];
-  options?: GraphQLOptionsInput;
+  minVoteAverage?: number;
+  minVoteCount?: number;
+  runtimeRange?: number[];
+  originalLanguage?: string;
 }
 
 export interface RandomMovieArgs {

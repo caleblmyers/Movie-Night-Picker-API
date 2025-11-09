@@ -158,26 +158,37 @@ export class TMDBClient {
 
     if (params?.genres && params.genres.length > 0) {
       // Convert genre IDs to strings for TMDB API
+      // Using comma (,) for AND logic - movie must have ALL specified genres
       discoverParams.with_genres = params.genres.map(String).join(",");
     }
 
     if (params?.yearRange && params.yearRange.length === 2) {
-      discoverParams["primary_release_date.gte"] = `${params.yearRange[0]}-01-01`;
-      discoverParams["primary_release_date.lte"] = `${params.yearRange[1]}-12-31`;
+      const startYear = params.yearRange[0];
+      const endYear = params.yearRange[1];
+      discoverParams["primary_release_date.gte"] = `${startYear}-01-01`;
+      discoverParams["primary_release_date.lte"] = `${endYear}-12-31`;
     }
 
     if (params?.actors && params.actors.length > 0) {
+      // Using comma (,) for AND logic - movie must have ALL specified actors
       discoverParams.with_cast = params.actors.join(",");
     }
 
     if (params?.crew && params.crew.length > 0) {
       // TMDB uses with_crew parameter for crew members
+      // Using comma (,) for AND logic - movie must have ALL specified crew members
       discoverParams.with_crew = params.crew.join(",");
     }
 
     if (params?.keywords && params.keywords.length > 0) {
       // TMDB uses with_keywords parameter for keywords
       discoverParams.with_keywords = params.keywords.join(",");
+    }
+
+    if (params?.runtimeRange && params.runtimeRange.length === 2) {
+      // TMDB uses with_runtime_gte and with_runtime_lte for runtime filtering (in minutes)
+      discoverParams.with_runtime_gte = params.runtimeRange[0];
+      discoverParams.with_runtime_lte = params.runtimeRange[1];
     }
 
     return discoverParams;

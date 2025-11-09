@@ -9,6 +9,10 @@ export const movieSchema = gql`
     releaseDate: String
     voteAverage: Float
     voteCount: Int
+    # Runtime in minutes (if available)
+    runtime: Int
+    # Genres (if available)
+    genres: [Genre!]!
     # Trailer information (if available)
     trailer: MovieTrailer
     # User-specific data (requires authentication, returns null if not authenticated or no data)
@@ -81,14 +85,18 @@ export const movieSchema = gql`
     suggestMovie(preferences: MoviePreferencesInput): Movie
 
     # Shuffle/random movie (uses discover and returns one random result)
-    # Accepts optional genres, yearRange, cast (actors), and crew (directors/writers)
-    # If no results with multiple genres/cast/crew, tries again with only one of each
+    # Accepts optional genres (as IDs), yearRange, cast (actors), crew (directors/writers),
+    # minVoteAverage, minVoteCount, runtimeRange, and originalLanguage
+    # Returns null if no movies match the criteria
     shuffleMovie(
       genres: [Int!]
       yearRange: [Int!]
       cast: [Int!]
       crew: [Int!]
-      options: TMDBOptionsInput
+      minVoteAverage: Float
+      minVoteCount: Int
+      runtimeRange: [Int!]
+      originalLanguage: String
     ): Movie
 
     # Get a completely random movie

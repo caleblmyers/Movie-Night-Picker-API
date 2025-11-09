@@ -10,14 +10,6 @@ export function excludePassword(user: User): UserWithoutPassword {
 }
 
 /**
- * Validate email format
- */
-export function isValidEmail(email: string): boolean {
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  return emailRegex.test(email);
-}
-
-/**
  * Validate password strength
  */
 export function validatePassword(password: string): { valid: boolean; error?: string } {

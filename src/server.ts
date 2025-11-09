@@ -2,7 +2,6 @@ import express from "express";
 import { ApolloServer } from "@apollo/server";
 import { expressMiddleware } from "@as-integrations/express5";
 import cors from "cors";
-import bodyParser from "body-parser";
 import dotenv from "dotenv";
 import { typeDefs } from "./schema";
 import { resolvers } from "./resolvers";
@@ -29,14 +28,14 @@ async function startServer() {
 
   await server.start();
 
-  // Apply CORS and body-parser middleware, then Apollo GraphQL middleware
+  // Apply CORS and JSON body parser middleware, then Apollo GraphQL middleware
   app.use(
     "/graphql",
     cors({
       origin: process.env.FRONTEND_URL || "*",
       credentials: true,
     }),
-    bodyParser.json(),
+    express.json(),
     expressMiddleware(server, {
       context: createContext,
     })

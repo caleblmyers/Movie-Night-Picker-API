@@ -108,6 +108,7 @@ export class MovieMethods extends TMDBClient {
       requestParams,
       "Failed to discover movies from TMDB"
     );
+    
     return response.results || [];
   }
 

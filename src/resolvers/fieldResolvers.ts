@@ -8,6 +8,7 @@ import {
   calculateAverageRating,
 } from "../utils/dbHelpers";
 import { extractTrailer } from "../utils/transformers";
+import { GENRE_ICONS } from "../constants";
 
 export const fieldResolvers = {
   User: {
@@ -181,6 +182,34 @@ export const fieldResolvers = {
   },
 
   Movie: {
+    genres: async (
+      movie: { id: number; genres?: Array<{ id: number; name: string }> },
+      _args: unknown,
+      context: Context
+    ) => {
+      // If genres are already present, return them
+      if (movie.genres && movie.genres.length > 0) {
+        return movie.genres.map((genre) => ({
+          id: genre.id,
+          name: genre.name,
+          icon: GENRE_ICONS[genre.id] || null,
+        }));
+      }
+
+      // Otherwise, fetch full movie details to get genres
+      try {
+        const fullMovie = await context.tmdb.getMovie(movie.id);
+        const genres = (fullMovie as { genres?: Array<{ id: number; name: string }> }).genres || [];
+        return genres.map((genre) => ({
+          id: genre.id,
+          name: genre.name,
+          icon: GENRE_ICONS[genre.id] || null,
+        }));
+      } catch (error) {
+        return [];
+      }
+    },
+
     trailer: async (
       movie: { id: number; trailer?: { key: string; site: string; name: string; type: string; url: string } | null },
       _args: unknown,

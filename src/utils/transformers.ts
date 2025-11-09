@@ -23,6 +23,8 @@ export interface TMDBMovieResponse {
   release_date?: string | null;
   vote_average?: number | null;
   vote_count?: number | null;
+  runtime?: number | null;
+  genres?: Array<{ id: number; name: string }>;
   // Videos can be either an array (from our getMovie method) or an object with results (from TMDB API)
   videos?: TMDBVideo[] | { results?: TMDBVideo[] };
 }
@@ -134,6 +136,8 @@ export function transformTMDBMovie(
       releaseDate: tmdbMovie.release_date || null,
       voteAverage: tmdbMovie.vote_average || null,
       voteCount: tmdbMovie.vote_count || null,
+      runtime: tmdbMovie.runtime || null,
+      genres: tmdbMovie.genres || [],
       trailer,
     };
   }
@@ -147,6 +151,8 @@ export function transformTMDBMovie(
     releaseDate: null,
     voteAverage: null,
     voteCount: null,
+    runtime: null,
+    genres: [],
     trailer: null,
   };
 }

@@ -6,6 +6,8 @@ export interface Movie {
   releaseDate?: string | null;
   voteAverage?: number | null;
   voteCount?: number | null;
+  runtime?: number | null;
+  genres?: Array<{ id: number; name: string }>;
   trailer?: {
     key: string;
     site: string;
@@ -32,6 +34,7 @@ export interface DiscoverParams {
   actors?: number[];
   crew?: number[];
   keywords?: number[];
+  runtimeRange?: number[];
 }
 
 export interface TMDBOptions {

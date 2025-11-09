@@ -38,5 +38,6 @@ export interface DiscoverParams {
   actors?: number[];
   crew?: number[];
   keywords?: number[];
+  runtimeRange?: number[];
 }
 
