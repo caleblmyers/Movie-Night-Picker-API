@@ -41,6 +41,8 @@ export const movieSchema = gql`
     era: String
     # Keyword IDs for thematic filtering (e.g., "superhero", "time travel")
     keywordIds: [Int!]
+    # Popularity level (HIGH, AVERAGE, LOW) - alternative to popularityRange
+    popularityLevel: PopularityLevel
     # Collection filtering options
     # Only include movies from these collection IDs
     inCollections: [Int!]
@@ -87,7 +89,8 @@ export const movieSchema = gql`
     # Search movies by query string (smart search with fuzzy matching)
     # TMDB automatically performs case-insensitive partial matching
     # limit: Maximum number of results to return (default: 20, max: 100)
-    searchMovies(query: String!, limit: Int, options: TMDBOptionsInput): [Movie!]!
+    # popularityLevel: Filter by popularity level (HIGH, AVERAGE, LOW) - filters results after search
+    searchMovies(query: String!, limit: Int, popularityLevel: PopularityLevel, options: TMDBOptionsInput): [Movie!]!
 
     # Search keywords by query string (for autocomplete in filter UI)
     # TMDB automatically performs case-insensitive partial matching
@@ -114,6 +117,8 @@ export const movieSchema = gql`
       excludeCrew: [Int!]
       # Popularity range [min, max] - TMDB popularity score
       popularityRange: [Float!]
+      # Popularity level (HIGH, AVERAGE, LOW) - alternative to popularityRange
+      popularityLevel: PopularityLevel
       # Production countries - ISO 3166-1 alpha-2 country codes
       originCountries: [String!]
       # Keyword IDs for thematic filtering (e.g., "superhero", "time travel")
@@ -150,6 +155,8 @@ export const movieSchema = gql`
       excludeCrew: [Int!]
       # Popularity range [min, max] - TMDB popularity score
       popularityRange: [Float!]
+      # Popularity level (HIGH, AVERAGE, LOW) - alternative to popularityRange
+      popularityLevel: PopularityLevel
       # Production countries - ISO 3166-1 alpha-2 country codes (e.g., ["US", "GB"])
       originCountries: [String!]
       # Keyword IDs for thematic filtering (e.g., "superhero", "time travel", "dystopia")
@@ -185,7 +192,7 @@ export const movieSchema = gql`
     # Get upcoming movies
     upcomingMovies(options: TMDBOptionsInput): [Movie!]!
 
-    # Get a random movie from trending, now playing, top rated, or upcoming
+    # Get a random movie from trending, now playing, popular, top rated, or upcoming
     # source: Which source to use (if not provided, a random source will be selected)
     # timeWindow: For trending only - "day" or "week" (if not provided, randomly selected for trending, ignored for other sources)
     randomMovieFromSource(
@@ -194,7 +201,7 @@ export const movieSchema = gql`
       options: TMDBOptionsInput
     ): Movie
 
-    # Get a random actor from trending, now playing, top rated, or upcoming movies
+    # Get a random actor from trending, now playing, popular, top rated, or upcoming movies
     # source: Which source to use (if not provided, a random source will be selected)
     # timeWindow: For trending only - "day" or "week" (if not provided, randomly selected for trending, ignored for other sources)
     randomActorFromSource(
@@ -251,8 +258,15 @@ export const movieSchema = gql`
   enum MovieSource {
     TRENDING
     NOW_PLAYING
+    POPULAR
     TOP_RATED
     UPCOMING
+  }
+
+  enum PopularityLevel {
+    HIGH
+    AVERAGE
+    LOW
   }
 
   type MovieTrailer {

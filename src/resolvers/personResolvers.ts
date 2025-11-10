@@ -127,9 +127,10 @@ export const personResolvers = {
     ): Promise<Person> => {
       try {
         // Convert GraphQL enum to lowercase for TMDB API
-        const sourceMap: Record<string, "trending" | "now_playing" | "top_rated" | "upcoming"> = {
+        const sourceMap: Record<string, "trending" | "now_playing" | "popular" | "top_rated" | "upcoming"> = {
           TRENDING: "trending",
           NOW_PLAYING: "now_playing",
+          POPULAR: "popular",
           TOP_RATED: "top_rated",
           UPCOMING: "upcoming",
         };
@@ -137,9 +138,10 @@ export const personResolvers = {
         // If source is not provided, randomly select one
         let selectedSource = args.source;
         if (!selectedSource) {
-          const sources: Array<"TRENDING" | "NOW_PLAYING" | "TOP_RATED" | "UPCOMING"> = [
+          const sources: Array<"TRENDING" | "NOW_PLAYING" | "POPULAR" | "TOP_RATED" | "UPCOMING"> = [
             "TRENDING",
             "NOW_PLAYING",
+            "POPULAR",
             "TOP_RATED",
             "UPCOMING",
           ];

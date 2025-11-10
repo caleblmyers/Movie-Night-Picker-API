@@ -117,6 +117,24 @@ export const MOOD_TO_KEYWORDS: Record<string, number[]> = {
 } as const;
 
 /**
+ * Popularity level thresholds for TMDB movies
+ * Based on typical TMDB popularity score ranges
+ */
+export const POPULARITY_LEVELS = {
+  HIGH: { min: 100, max: Infinity }, // Very popular movies (blockbusters)
+  AVERAGE: { min: 20, max: 100 }, // Moderately popular movies
+  LOW: { min: 0, max: 20 }, // Less popular/niche movies
+} as const;
+
+/**
+ * Convert popularity level to range
+ */
+export function getPopularityRange(level: "HIGH" | "AVERAGE" | "LOW"): [number, number] {
+  const range = POPULARITY_LEVELS[level];
+  return [range.min, range.max === Infinity ? 1000 : range.max]; // Cap at 1000 for API
+}
+
+/**
  * Era options for filtering movies by time period
  */
 export const ERA_OPTIONS = [

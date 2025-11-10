@@ -37,6 +37,7 @@ import {
   MOVIE_VIBE_ICONS,
   ERA_OPTION_ICONS,
   GENRE_ICONS,
+  getPopularityRange,
 } from "../constants";
 import { convertGraphQLOptionsToTMDBOptions } from "../utils/tmdbOptionsConverter";
 
@@ -69,12 +70,24 @@ export const movieResolvers = {
           : 20;
 
         const options = convertGraphQLOptionsToTMDBOptions(args.options);
-        const tmdbMovies = await context.tmdb.searchMovies(
+        let tmdbMovies = await context.tmdb.searchMovies(
           args.query,
-          limit,
+          limit * 2, // Fetch more to account for filtering
           options
         );
-        return tmdbMovies.map((m) =>
+
+        // Filter by popularity level if provided
+        if (args.popularityLevel) {
+          const [minPopularity, maxPopularity] = getPopularityRange(args.popularityLevel);
+          tmdbMovies = (tmdbMovies as Array<{ popularity?: number }>).filter((movie) => {
+            const popularity = movie.popularity ?? 0;
+            return popularity >= minPopularity && popularity <= maxPopularity;
+          });
+        }
+
+        // Apply final limit after filtering
+        const finalResults = tmdbMovies.slice(0, limit);
+        return finalResults.map((m) =>
           transformTMDBMovie(m as TMDBMovieResponse)
         );
       } catch (error) {
@@ -131,15 +144,18 @@ export const movieResolvers = {
           excludeCast: args.excludeCast,
           excludeCrew: args.excludeCrew,
           popularityRange: args.popularityRange,
+          popularityLevel: args.popularityLevel,
           originCountries: args.originCountries,
           keywords: args.keywordIds,
         });
         
-        // Build options with popularity range if provided
+        // Build options with popularity range if provided (from range or level)
+        const popularityRange = args.popularityRange || 
+          (args.popularityLevel ? getPopularityRange(args.popularityLevel) : undefined);
         const options = convertGraphQLOptionsToTMDBOptions({
           ...args.options,
-          popularityGte: args.popularityRange?.[0],
-          popularityLte: args.popularityRange?.[1],
+          popularityGte: popularityRange?.[0],
+          popularityLte: popularityRange?.[1],
         });
         
         const tmdbMovies = await context.tmdb.discoverMovies(
@@ -212,6 +228,7 @@ export const movieResolvers = {
           actors: actorIds,
           crew: crewIds,
           keywords: prefs.keywordIds,
+          popularityLevel: prefs.popularityLevel,
         };
 
         // Try progressive fallback: start with all parameters, remove one at a time if no results
@@ -262,12 +279,14 @@ export const movieResolvers = {
     ): Promise<Movie | null> => {
       try {
         // Build TMDB options with new parameters
+        const popularityRange = args.popularityRange || 
+          (args.popularityLevel ? getPopularityRange(args.popularityLevel) : undefined);
         const options = convertGraphQLOptionsToTMDBOptions({
           voteAverageGte: args.minVoteAverage,
           voteCountGte: args.minVoteCount,
           withOriginalLanguage: args.originalLanguage,
-          popularityGte: args.popularityRange?.[0],
-          popularityLte: args.popularityRange?.[1],
+          popularityGte: popularityRange?.[0],
+          popularityLte: popularityRange?.[1],
         });
 
         // Get user for collection filtering (if needed)
@@ -327,6 +346,7 @@ export const movieResolvers = {
           excludeCast: args.excludeCast,
           excludeCrew: args.excludeCrew,
           popularityRange: args.popularityRange,
+          popularityLevel: args.popularityLevel,
           originCountries: args.originCountries,
           keywords: args.keywordIds,
         };
@@ -361,6 +381,7 @@ export const movieResolvers = {
           args.minVoteCount ||
           args.originalLanguage ||
           args.popularityRange ||
+          args.popularityLevel ||
           args.watchProviders ||
           args.excludeGenres ||
           args.excludeCast ||
@@ -521,9 +542,10 @@ export const movieResolvers = {
     ): Promise<Movie> => {
       try {
         // Convert GraphQL enum to lowercase for TMDB API
-        const sourceMap: Record<string, "trending" | "now_playing" | "top_rated" | "upcoming"> = {
+        const sourceMap: Record<string, "trending" | "now_playing" | "popular" | "top_rated" | "upcoming"> = {
           TRENDING: "trending",
           NOW_PLAYING: "now_playing",
+          POPULAR: "popular",
           TOP_RATED: "top_rated",
           UPCOMING: "upcoming",
         };
@@ -531,9 +553,10 @@ export const movieResolvers = {
         // If source is not provided, randomly select one
         let selectedSource = args.source;
         if (!selectedSource) {
-          const sources: Array<"TRENDING" | "NOW_PLAYING" | "TOP_RATED" | "UPCOMING"> = [
+          const sources: Array<"TRENDING" | "NOW_PLAYING" | "POPULAR" | "TOP_RATED" | "UPCOMING"> = [
             "TRENDING",
             "NOW_PLAYING",
+            "POPULAR",
             "TOP_RATED",
             "UPCOMING",
           ];

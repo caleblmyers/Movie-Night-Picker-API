@@ -52,6 +52,7 @@ export interface GetMovieArgs {
 export interface SearchMoviesArgs {
   query: string;
   limit?: number;
+  popularityLevel?: "HIGH" | "AVERAGE" | "LOW";
   options?: GraphQLOptionsInput;
 }
 
@@ -71,6 +72,7 @@ export interface DiscoverMoviesArgs {
   excludeCast?: number[];
   excludeCrew?: number[];
   popularityRange?: number[];
+  popularityLevel?: "HIGH" | "AVERAGE" | "LOW";
   originCountries?: string[];
   keywordIds?: number[];
   options?: GraphQLOptionsInput;
@@ -84,6 +86,7 @@ export interface MoviePreferencesInput {
   mood?: string;
   era?: string;
   keywordIds?: number[];
+  popularityLevel?: "HIGH" | "AVERAGE" | "LOW";
   inCollections?: number[];
   excludeCollections?: number[];
   notInAnyCollection?: boolean;
@@ -108,6 +111,7 @@ export interface ShuffleMovieArgs {
   excludeCast?: number[];
   excludeCrew?: number[];
   popularityRange?: number[];
+  popularityLevel?: "HIGH" | "AVERAGE" | "LOW";
   originCountries?: string[];
   keywordIds?: number[];
   inCollections?: number[];
@@ -141,13 +145,13 @@ export interface UpcomingMoviesArgs {
 }
 
 export interface RandomMovieFromSourceArgs {
-  source?: "TRENDING" | "NOW_PLAYING" | "TOP_RATED" | "UPCOMING";
+  source?: "TRENDING" | "NOW_PLAYING" | "POPULAR" | "TOP_RATED" | "UPCOMING";
   timeWindow?: "DAY" | "WEEK";
   options?: GraphQLOptionsInput;
 }
 
 export interface RandomActorFromSourceArgs {
-  source?: "TRENDING" | "NOW_PLAYING" | "TOP_RATED" | "UPCOMING";
+  source?: "TRENDING" | "NOW_PLAYING" | "POPULAR" | "TOP_RATED" | "UPCOMING";
   timeWindow?: "DAY" | "WEEK";
   options?: GraphQLOptionsInput;
 }

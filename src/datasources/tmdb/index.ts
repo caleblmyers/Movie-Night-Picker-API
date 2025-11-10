@@ -47,12 +47,12 @@ export class TMDBDataSource extends TMDBClient {
   getTopRatedMovies!: (options?: TMDBOptions) => Promise<unknown[]>;
   getUpcomingMovies!: (options?: TMDBOptions) => Promise<unknown[]>;
   getRandomMovieFromSource!: (
-    source: "trending" | "now_playing" | "top_rated" | "upcoming",
+    source: "trending" | "now_playing" | "popular" | "top_rated" | "upcoming",
     timeWindow?: "day" | "week",
     options?: TMDBOptions
   ) => Promise<unknown>;
   getRandomActorFromSource!: (
-    source: "trending" | "now_playing" | "top_rated" | "upcoming",
+    source: "trending" | "now_playing" | "popular" | "top_rated" | "upcoming",
     timeWindow?: "day" | "week",
     options?: TMDBOptions
   ) => Promise<{ id: number; name: string; profile_path?: string }>;

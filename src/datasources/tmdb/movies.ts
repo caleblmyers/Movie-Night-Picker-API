@@ -336,15 +336,15 @@ export class MovieMethods extends TMDBClient {
   }
 
   /**
-   * Get a random movie from trending, now playing, top rated, or upcoming
+   * Get a random movie from trending, now playing, popular, top rated, or upcoming
    * Randomizes across all available pages for better distribution
    * Uses caching to reduce API calls
-   * @param source - Which source to use: "trending", "now_playing", "top_rated", or "upcoming"
+   * @param source - Which source to use: "trending", "now_playing", "popular", "top_rated", or "upcoming"
    * @param timeWindow - For trending: "day" or "week" (default: "day")
    * @param options - Optional TMDB options
    */
   async getRandomMovieFromSource(
-    source: "trending" | "now_playing" | "top_rated" | "upcoming",
+    source: "trending" | "now_playing" | "popular" | "top_rated" | "upcoming",
     timeWindow: "day" | "week" = "day",
     options?: TMDBOptions
   ) {
@@ -412,15 +412,15 @@ export class MovieMethods extends TMDBClient {
   }
 
   /**
-   * Get a random actor from trending, now playing, top rated, or upcoming movies
+   * Get a random actor from trending, now playing, popular, top rated, or upcoming movies
    * Optimized to retry with a different movie if the first one has no actors
-   * @param source - Which source to use: "trending", "now_playing", "top_rated", or "upcoming"
+   * @param source - Which source to use: "trending", "now_playing", "popular", "top_rated", or "upcoming"
    * @param timeWindow - For trending: "day" or "week" (default: "day")
    * @param options - Optional TMDB options
    * @param maxRetries - Maximum number of retries if movie has no actors (default: 3)
    */
   async getRandomActorFromSource(
-    source: "trending" | "now_playing" | "top_rated" | "upcoming",
+    source: "trending" | "now_playing" | "popular" | "top_rated" | "upcoming",
     timeWindow: "day" | "week" = "day",
     options?: TMDBOptions,
     maxRetries: number = 3

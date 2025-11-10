@@ -1,5 +1,5 @@
 import { DiscoverParams } from "../types";
-import { MOOD_TO_KEYWORDS, getEraYearRange } from "../constants";
+import { MOOD_TO_KEYWORDS, getEraYearRange, getPopularityRange } from "../constants";
 
 export interface DiscoverFilters {
   genres?: number[];
@@ -17,6 +17,7 @@ export interface DiscoverFilters {
   excludeCast?: number[];
   excludeCrew?: number[];
   popularityRange?: number[];
+  popularityLevel?: "HIGH" | "AVERAGE" | "LOW";
   originCountries?: string[];
 }
 
@@ -98,9 +99,12 @@ export function buildDiscoverParams(
     params.excludeCrew = filters.excludeCrew;
   }
 
-  // Handle popularity range
+  // Handle popularity range or level
   if (filters.popularityRange && filters.popularityRange.length === 2) {
     params.popularityRange = filters.popularityRange;
+  } else if (filters.popularityLevel) {
+    // Convert popularity level to range
+    params.popularityRange = getPopularityRange(filters.popularityLevel);
   }
 
   // Handle origin countries
