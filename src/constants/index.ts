@@ -10,6 +10,11 @@ export const MIN_RATING = 1;
 export const MAX_RATING = 10;
 
 /**
+ * Suggest movie rounds configuration
+ */
+export const SUGGEST_MOVIE_ROUNDS = 10; // Number of rounds available for suggest movie flow
+
+/**
  * Error messages
  */
 export const ERROR_MESSAGES = {

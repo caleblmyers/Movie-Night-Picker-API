@@ -94,7 +94,11 @@ export interface MoviePreferencesInput {
 }
 
 export interface SuggestMovieArgs {
-  preferences?: MoviePreferencesInput;
+  selectedMovieIds: number[];
+}
+
+export interface SuggestMovieRoundArgs {
+  round: number;
 }
 
 export interface ShuffleMovieArgs {

@@ -126,10 +126,19 @@ export const movieSchema = gql`
       options: TMDBOptionsInput
     ): [Movie!]!
 
-    # Suggest a movie based on user selections (genres, actors, year range)
-    # Returns a single random movie matching the criteria
-    # All parameters are optional - can be called with any combination
-    suggestMovie(preferences: MoviePreferencesInput): Movie
+    # Suggest a movie based on user selections
+    # Backend extracts categories (genres, keywords, year ranges, actors, directors) from selected movies
+    # Returns a single random movie matching the aggregated criteria
+    suggestMovie(selectedMovieIds: [Int!]!): Movie
+
+    # Get 4 movies for a suggest round
+    # Each movie represents different category combinations (genres, moods, eras, keywords, etc.)
+    # The user selects movies across rounds, and their selections are aggregated for suggestMovie
+    # round: Round number (1 to maxRounds, see suggestMovieRounds query)
+    suggestMovieRound(round: Int!): [Movie!]!
+
+    # Get the number of available rounds for the suggest movie flow
+    suggestMovieRounds: Int!
 
     # Shuffle/random movie (uses discover and returns one random result)
     # Accepts optional genres (as IDs), yearRange, cast (actors), crew (directors/writers),

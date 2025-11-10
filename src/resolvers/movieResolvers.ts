@@ -6,6 +6,7 @@ import {
   SearchKeywordsArgs,
   DiscoverMoviesArgs,
   SuggestMovieArgs,
+  SuggestMovieRoundArgs,
   ShuffleMovieArgs,
   RandomMovieArgs,
   TrendingMoviesArgs,
@@ -16,6 +17,7 @@ import {
   RandomMovieFromSourceArgs,
   ActorsFromFeaturedMoviesArgs,
   CrewFromFeaturedMoviesArgs,
+  MoviePreferencesInput,
 } from "../types/resolvers";
 import { transformTMDBMovie } from "../utils/transformers";
 import type { TMDBMovieResponse } from "../utils/transformers";
@@ -25,6 +27,7 @@ import {
   shouldTryFallback,
   pickRandomItem,
   buildProgressiveFallbackParams,
+  DiscoverFilters,
 } from "../utils/discoverHelpers";
 import {
   getMovieIdsFromCollections,
@@ -38,8 +41,264 @@ import {
   ERA_OPTION_ICONS,
   GENRE_ICONS,
   getPopularityRange,
+  MOOD_TO_KEYWORDS,
+  getEraYearRange,
+  SUGGEST_MOVIE_ROUNDS,
 } from "../constants";
 import { convertGraphQLOptionsToTMDBOptions } from "../utils/tmdbOptionsConverter";
+
+/**
+ * Extract and aggregate categories from selected movies
+ * Returns simplified preferences that are less restrictive for better discovery
+ */
+async function extractCategoriesFromMovies(
+  movieIds: number[],
+  context: Context
+): Promise<MoviePreferencesInput> {
+  const preferences: MoviePreferencesInput = {
+    genres: [],
+    keywordIds: [],
+    actors: [],
+    crew: [],
+    yearRange: undefined,
+  };
+
+  const years: number[] = [];
+  const genreCounts = new Map<number, number>();
+  const keywordCounts = new Map<number, number>();
+  const actorCounts = new Map<number, number>();
+  const crewCounts = new Map<number, number>();
+
+  // Fetch all selected movies in parallel (with credits for actors/crew)
+  const moviePromises = movieIds.map((id) =>
+    context.tmdb.getMovie(id, undefined, true).catch(() => null)
+  );
+  const movies = await Promise.all(moviePromises);
+
+  // Fetch keywords for all movies in parallel
+  const keywordPromises = movieIds.map((id) =>
+    context.tmdb.getMovieKeywords(id).catch(() => ({ keywords: [] }))
+  );
+  const keywordResults = await Promise.all(keywordPromises);
+
+  // Extract categories from each movie and count frequencies
+  for (let i = 0; i < movies.length; i++) {
+    const movie = movies[i];
+    if (!movie) continue;
+
+    const movieData = movie as {
+      genres?: Array<{ id: number; name: string }>;
+      release_date?: string;
+      credits?: {
+        cast?: Array<{ id: number; name: string }>;
+        crew?: Array<{ id: number; name: string; job?: string }>;
+      };
+    };
+
+    // Count genre frequencies
+    if (movieData.genres) {
+      movieData.genres.forEach((genre) => {
+        genreCounts.set(genre.id, (genreCounts.get(genre.id) || 0) + 1);
+      });
+    }
+
+    // Count keyword frequencies
+    const keywordData = keywordResults[i];
+    if (keywordData?.keywords) {
+      keywordData.keywords.forEach((keyword: { id: number; name: string }) => {
+        keywordCounts.set(keyword.id, (keywordCounts.get(keyword.id) || 0) + 1);
+      });
+    }
+
+    // Extract release year
+    if (movieData.release_date) {
+      const year = parseInt(movieData.release_date.substring(0, 4), 10);
+      if (!isNaN(year)) {
+        years.push(year);
+      }
+    }
+
+    // Count actor frequencies (top 3 actors per movie)
+    if (movieData.credits?.cast) {
+      movieData.credits.cast.slice(0, 3).forEach((actor) => {
+        actorCounts.set(actor.id, (actorCounts.get(actor.id) || 0) + 1);
+      });
+    }
+
+    // Count crew frequencies (directors and writers only)
+    if (movieData.credits?.crew) {
+      movieData.credits.crew
+        .filter((member) => {
+          const job = member.job?.toLowerCase() || "";
+          return job.includes("director") || job.includes("writer") || job.includes("screenplay");
+        })
+        .slice(0, 2)
+        .forEach((member) => {
+          crewCounts.set(member.id, (crewCounts.get(member.id) || 0) + 1);
+        });
+    }
+  }
+
+  // Select top genres (most common, limit to 2-3 for less restriction)
+  const sortedGenres = Array.from(genreCounts.entries())
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 3)
+    .map(([id]) => id);
+  preferences.genres = sortedGenres.length > 0 ? sortedGenres : [];
+
+  // Select top keywords (most common, limit to 3-5 for less restriction)
+  const sortedKeywords = Array.from(keywordCounts.entries())
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([id]) => id);
+  preferences.keywordIds = sortedKeywords.length > 0 ? sortedKeywords : [];
+
+  // Select top actors (most common, limit to 2 for less restriction)
+  const sortedActors = Array.from(actorCounts.entries())
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 2)
+    .map(([id]) => id);
+  preferences.actors = sortedActors.length > 0 ? sortedActors : [];
+
+  // Select top crew (most common, limit to 1-2 for less restriction)
+  const sortedCrew = Array.from(crewCounts.entries())
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 2)
+    .map(([id]) => id);
+  preferences.crew = sortedCrew.length > 0 ? sortedCrew : [];
+
+  // Calculate flexible year range (expand by 5 years on each side for more variety)
+  if (years.length > 0) {
+    const minYear = Math.min(...years);
+    const maxYear = Math.max(...years);
+    const yearSpan = maxYear - minYear;
+    // Expand range: add 5 years on each side, or 50% of span (whichever is larger)
+    const expansion = Math.max(5, Math.floor(yearSpan * 0.5));
+    const expandedMin = Math.max(1900, minYear - expansion); // Don't go before 1900
+    const expandedMax = Math.min(new Date().getFullYear(), maxYear + expansion); // Don't go past current year
+    preferences.yearRange = [expandedMin, expandedMax];
+  }
+
+  return preferences;
+}
+
+/**
+ * Generate 4 diverse category combinations for a suggest round
+ * Each combination represents different genres, moods, eras, and popularity levels
+ */
+function generateRoundCombinations(
+  round: number,
+  genreIds: number[]
+): Array<{
+  genres?: number[];
+  yearRange?: number[];
+  keywordIds?: number[];
+  popularityLevel?: "HIGH" | "AVERAGE" | "LOW";
+}> {
+  const combinations: Array<{
+    genres?: number[];
+    yearRange?: number[];
+    keywordIds?: number[];
+    popularityLevel?: "HIGH" | "AVERAGE" | "LOW";
+  }> = [];
+
+  // Use round number as seed for deterministic but varied combinations
+  // Each round will have different category focuses
+  const roundSeed = round - 1; // 0 to (SUGGEST_MOVIE_ROUNDS - 1)
+
+  // Popular genres to use (common, well-represented genres)
+  const popularGenres = [
+    28, // Action
+    35, // Comedy
+    18, // Drama
+    14, // Fantasy
+    27, // Horror
+    878, // Sci-Fi
+    53, // Thriller
+    16, // Animation
+    10749, // Romance
+    80, // Crime
+  ];
+
+  // Select genres based on round
+  const genreGroups = [
+    [popularGenres[roundSeed % popularGenres.length]],
+    [
+      popularGenres[roundSeed % popularGenres.length],
+      popularGenres[(roundSeed + 1) % popularGenres.length],
+    ],
+    [popularGenres[(roundSeed + 2) % popularGenres.length]],
+    [
+      popularGenres[(roundSeed + 3) % popularGenres.length],
+      popularGenres[(roundSeed + 4) % popularGenres.length],
+    ],
+  ];
+
+  // Select moods based on round (vary across rounds)
+  const moodOptions = MOVIE_VIBES.map((m) => m.id);
+  const selectedMoods = [
+    moodOptions[(roundSeed * 4) % moodOptions.length],
+    moodOptions[(roundSeed * 4 + 1) % moodOptions.length],
+    moodOptions[(roundSeed * 4 + 2) % moodOptions.length],
+    moodOptions[(roundSeed * 4 + 3) % moodOptions.length],
+  ];
+
+  // Select eras based on round
+  const eraOptions = ERA_OPTIONS.map((e) => e.value);
+  const selectedEras = [
+    eraOptions[(roundSeed * 2) % eraOptions.length],
+    eraOptions[(roundSeed * 2 + 1) % eraOptions.length],
+    eraOptions[(roundSeed * 2 + 2) % eraOptions.length],
+    eraOptions[(roundSeed * 2 + 3) % eraOptions.length],
+  ];
+
+  // Popularity levels
+  const popularityLevels: Array<"HIGH" | "AVERAGE" | "LOW"> = ["HIGH", "AVERAGE", "LOW"];
+
+  // Generate 4 combinations deterministically based on round
+  // Each combination will always have the same categories for the same round
+  for (let i = 0; i < 4; i++) {
+    const combo: {
+      genres?: number[];
+      yearRange?: number[];
+      keywordIds?: number[];
+      popularityLevel?: "HIGH" | "AVERAGE" | "LOW";
+    } = {
+      genres: genreGroups[i],
+    };
+
+    // Deterministically include mood (keyword) based on round and position
+    // Pattern: include mood for positions 0, 1, 3 (75% coverage)
+    if (i !== 2) {
+      const moodId = selectedMoods[i];
+      const moodKeywords = MOOD_TO_KEYWORDS[moodId];
+      if (moodKeywords && moodKeywords.length > 0) {
+        // Use first keyword from mood
+        combo.keywordIds = [moodKeywords[0]];
+      }
+    }
+
+    // Deterministically include era (year range) based on round and position
+    // Pattern: include era for positions 0, 2, 3 (75% coverage)
+    if (i !== 1) {
+      const eraId = selectedEras[i];
+      const yearRange = getEraYearRange(eraId);
+      if (yearRange) {
+        combo.yearRange = yearRange;
+      }
+    }
+
+    // Deterministically include popularity level based on round and position
+    // Pattern: include popularity for positions 1, 3 (50% coverage)
+    if (i === 1 || i === 3) {
+      combo.popularityLevel = popularityLevels[(roundSeed + i) % popularityLevels.length];
+    }
+
+    combinations.push(combo);
+  }
+
+  return combinations;
+}
 
 export const movieResolvers = {
   Query: {
@@ -176,91 +435,107 @@ export const movieResolvers = {
       context: Context
     ): Promise<Movie> => {
       try {
-        const prefs = args.preferences || {};
+        // Validate that movie IDs are provided
+        if (!args.selectedMovieIds || args.selectedMovieIds.length === 0) {
+          throw new Error("At least one movie ID must be provided");
+        }
+
+        // Extract categories from selected movies
+        const prefs = await extractCategoriesFromMovies(
+          args.selectedMovieIds,
+          context
+        );
+
         const options = convertGraphQLOptionsToTMDBOptions(prefs.options);
 
-        // Get user for collection filtering (if needed)
-        const user = context.user;
-        let inCollectionIds: Set<number> | null = null;
-        let excludeCollectionIds: Set<number> | null = null;
-        let allCollectionMovieIds: Set<number> | null = null;
-
-        // Handle collection filtering if user is authenticated
-        if (user) {
-          if (prefs.inCollections && prefs.inCollections.length > 0) {
-            const movieIds = await getMovieIdsFromCollections(
-              context.prisma,
-              user.id,
-              prefs.inCollections
-            );
-            inCollectionIds = new Set(movieIds);
-          }
-
-          if (prefs.excludeCollections && prefs.excludeCollections.length > 0) {
-            const movieIds = await getMovieIdsFromCollections(
-              context.prisma,
-              user.id,
-              prefs.excludeCollections
-            );
-            excludeCollectionIds = new Set(movieIds);
-          }
-
-          if (prefs.notInAnyCollection) {
-            const movieIds = await getAllMovieIdsInCollections(
-              context.prisma,
-              user.id
-            );
-            allCollectionMovieIds = new Set(movieIds);
-          }
-        }
-
-        // Filter actors and crew
-        const actorIds = prefs.actors
-          ? await context.tmdb.filterToActorsOnly(prefs.actors)
-          : undefined;
-        const crewIds = prefs.crew
-          ? await context.tmdb.filterToCrewOnly(prefs.crew)
-          : undefined;
-
-        // Build filters with filtered actors/crew
-        const filters = {
-          ...prefs,
-          actors: actorIds,
-          crew: crewIds,
-          keywords: prefs.keywordIds,
-          popularityLevel: prefs.popularityLevel,
-        };
-
-        // Try progressive fallback: start with all parameters, remove one at a time if no results
-        const fallbackParams = buildProgressiveFallbackParams(filters);
+        // Build a simpler, less restrictive query
+        // Strategy: Use fewer filters at once, prioritize genres and year range
+        // We don't use actors/crew filters to keep queries less restrictive
         let tmdbMovies: unknown[] = [];
+        let attempts = 0;
 
-        for (const discoverParams of fallbackParams) {
+        // Try different combinations, starting with simpler queries
+        const queryStrategies: Array<() => Partial<{ genres?: number[]; keywords?: number[]; yearRange?: number[] }>> = [
+          // Strategy 1: Genres + Year Range (most common, least restrictive)
+          () => ({
+            genres: prefs.genres && prefs.genres.length > 0 ? prefs.genres.slice(0, 2) : undefined,
+            yearRange: prefs.yearRange,
+          }),
+          // Strategy 2: Genres + Keywords (thematic match)
+          () => ({
+            genres: prefs.genres && prefs.genres.length > 0 ? prefs.genres.slice(0, 2) : undefined,
+            keywords: prefs.keywordIds && prefs.keywordIds.length > 0 ? prefs.keywordIds.slice(0, 3) : undefined,
+          }),
+          // Strategy 3: Just top genre + year range
+          () => ({
+            genres: prefs.genres && prefs.genres.length > 0 ? [prefs.genres[0]] : undefined,
+            yearRange: prefs.yearRange,
+          }),
+          // Strategy 4: Genres only
+          () => ({
+            genres: prefs.genres && prefs.genres.length > 0 ? prefs.genres.slice(0, 2) : undefined,
+          }),
+          // Strategy 5: Keywords + Year Range
+          () => ({
+            keywords: prefs.keywordIds && prefs.keywordIds.length > 0 ? prefs.keywordIds.slice(0, 3) : undefined,
+            yearRange: prefs.yearRange,
+          }),
+          // Strategy 6: Just top genre
+          () => ({
+            genres: prefs.genres && prefs.genres.length > 0 ? [prefs.genres[0]] : undefined,
+          }),
+          // Strategy 7: Year range only
+          () => ({
+            yearRange: prefs.yearRange,
+          }),
+        ];
+
+        // Try each strategy until we get results
+        while (tmdbMovies.length === 0 && attempts < queryStrategies.length) {
+          const strategy = queryStrategies[attempts];
+          const filters = strategy();
+          
+          // Only include non-empty filters
+          const discoverFilters: DiscoverFilters = {};
+          if (filters.genres) discoverFilters.genres = filters.genres;
+          if (filters.keywords) discoverFilters.keywordIds = filters.keywords;
+          if (filters.yearRange) discoverFilters.yearRange = filters.yearRange;
+
+          // Skip if no filters to use
+          if (Object.keys(discoverFilters).length === 0) {
+            attempts++;
+            continue;
+          }
+
+          const discoverParams = buildDiscoverParams(discoverFilters, false);
           tmdbMovies = await context.tmdb.discoverMovies(discoverParams, options);
           
-          // Apply collection filtering
-          if (inCollectionIds || excludeCollectionIds || prefs.notInAnyCollection) {
-            tmdbMovies = filterMoviesByCollections(
-              tmdbMovies as Array<{ id: number }>,
-              inCollectionIds,
-              excludeCollectionIds,
-              prefs.notInAnyCollection || false,
-              allCollectionMovieIds
-            );
+          attempts++;
+        }
+
+        // If still no results, try with just year range or random popular movies
+        if (tmdbMovies.length === 0) {
+          // Last resort: try with just year range if available
+          if (prefs.yearRange) {
+            const discoverParams = buildDiscoverParams({ yearRange: prefs.yearRange }, false);
+            tmdbMovies = await context.tmdb.discoverMovies(discoverParams, options);
           }
           
-          if (tmdbMovies.length > 0) {
-            break; // Found results, stop trying
+          // If still no results, get a random popular movie
+          if (tmdbMovies.length === 0) {
+            const randomMovie = await context.tmdb.getRandomMovieFromSource(
+              "popular",
+              undefined,
+              options
+            );
+            const movieId = (randomMovie as { id: number }).id;
+            const fullMovie = await context.tmdb.getMovie(movieId, options);
+            return transformTMDBMovie(fullMovie as TMDBMovieResponse);
           }
         }
 
-        if (tmdbMovies.length === 0) {
-          throw new Error(
-            "No movies found matching your selections. Try different criteria."
-          );
-        }
-
-        // Get the selected movie ID
+        // Randomize page selection for more variety
+        // If we have results, pick a random one
         const selectedMovie = pickRandomItem(tmdbMovies) as { id: number };
         
         // Fetch full movie details including videos/trailer
@@ -270,6 +545,150 @@ export const movieResolvers = {
       } catch (error) {
         throw handleError(error, "Failed to suggest movie");
       }
+    },
+
+    suggestMovieRound: async (
+      _parent: unknown,
+      args: SuggestMovieRoundArgs,
+      context: Context
+    ): Promise<Movie[]> => {
+      try {
+        const { round } = args;
+        
+        // Validate round number
+        if (round < 1 || round > SUGGEST_MOVIE_ROUNDS) {
+          throw new Error(`Round must be between 1 and ${SUGGEST_MOVIE_ROUNDS}`);
+        }
+
+        // Get available genres
+        const allGenres = await context.tmdb.getGenres();
+        const genreIds = allGenres.map((g) => g.id);
+
+        // Generate 4 diverse category combinations for this round
+        // Each combination represents different genres, moods, eras, and popularity levels
+        const combinations = generateRoundCombinations(round, genreIds);
+
+        // Fetch movies for each combination in parallel
+        const moviePromises = combinations.map(async (combo) => {
+          try {
+            // Build discover params for this combination
+            const discoverFilters = {
+              genres: combo.genres,
+              yearRange: combo.yearRange,
+              keywords: combo.keywordIds,
+              popularityLevel: combo.popularityLevel,
+            };
+
+            const discoverParams = buildDiscoverParams(discoverFilters, false);
+            const options = convertGraphQLOptionsToTMDBOptions({
+              voteAverageGte: 5.0, // Minimum quality threshold
+              voteCountGte: 50, // Minimum votes for reliability
+            });
+
+            // Discover movies with this combination
+            let tmdbMovies = await context.tmdb.discoverMovies(discoverParams, options);
+
+            // If no results, try with fewer constraints
+            if (tmdbMovies.length === 0 && combo.genres && combo.genres.length > 1) {
+              // Try with just the first genre
+              const fallbackParams = buildDiscoverParams(
+                { ...discoverFilters, genres: [combo.genres[0]] },
+                false
+              );
+              tmdbMovies = await context.tmdb.discoverMovies(fallbackParams, options);
+            }
+
+            // If still no results, try with just genres (no other filters)
+            if (tmdbMovies.length === 0 && combo.genres && combo.genres.length > 0) {
+              const genreOnlyParams = buildDiscoverParams({ genres: combo.genres }, false);
+              tmdbMovies = await context.tmdb.discoverMovies(genreOnlyParams, options);
+            }
+
+            // Pick a random movie from results
+            if (tmdbMovies.length > 0) {
+              const selectedMovie = pickRandomItem(tmdbMovies) as { id: number };
+              // Fetch full movie details
+              const fullMovie = await context.tmdb.getMovie(selectedMovie.id, options);
+              return transformTMDBMovie(fullMovie as TMDBMovieResponse);
+            }
+
+            return null;
+          } catch (error) {
+            // If one combination fails, return null (will be filtered out)
+            return null;
+          }
+        });
+
+        // Wait for all movies to be fetched
+        const movies = await Promise.all(moviePromises);
+        
+        // Filter out null results and ensure we have at least some movies
+        const validMovies = movies.filter((m): m is Movie => m !== null);
+
+        if (validMovies.length === 0) {
+          // Fallback: return 4 random movies from popular sources
+          const fallbackOptions = convertGraphQLOptionsToTMDBOptions({
+            voteAverageGte: 5.0,
+            voteCountGte: 50,
+          });
+          
+          const fallbackMovies = await Promise.all([
+            context.tmdb.getRandomMovieFromSource("popular", undefined, fallbackOptions),
+            context.tmdb.getRandomMovieFromSource("top_rated", undefined, fallbackOptions),
+            context.tmdb.getRandomMovieFromSource("trending", "day", fallbackOptions),
+            context.tmdb.getRandomMovieFromSource("now_playing", undefined, fallbackOptions),
+          ]);
+
+          const fallbackResults = await Promise.all(
+            fallbackMovies.map(async (m) => {
+              const movieId = (m as { id: number }).id;
+              const fullMovie = await context.tmdb.getMovie(movieId, fallbackOptions);
+              return transformTMDBMovie(fullMovie as TMDBMovieResponse);
+            })
+          );
+
+          return fallbackResults;
+        }
+
+        // If we have fewer than 4 movies, fill with random popular movies
+        const fillOptions = convertGraphQLOptionsToTMDBOptions({
+          voteAverageGte: 5.0,
+          voteCountGte: 50,
+        });
+        
+        while (validMovies.length < 4) {
+          try {
+            const randomMovie = await context.tmdb.getRandomMovieFromSource(
+              "popular",
+              undefined,
+              fillOptions
+            );
+            const movieId = (randomMovie as { id: number }).id;
+            const fullMovie = await context.tmdb.getMovie(movieId, fillOptions);
+            const transformed = transformTMDBMovie(fullMovie as TMDBMovieResponse);
+            
+            // Avoid duplicates
+            if (!validMovies.some((m) => m.id === transformed.id)) {
+              validMovies.push(transformed);
+            }
+          } catch (error) {
+            // If we can't get more movies, break
+            break;
+          }
+        }
+
+        return validMovies.slice(0, 4);
+      } catch (error) {
+        throw handleError(error, "Failed to get suggest movie round");
+      }
+    },
+
+    suggestMovieRounds: async (
+      _parent: unknown,
+      _args: unknown,
+      _context: Context
+    ): Promise<number> => {
+      return SUGGEST_MOVIE_ROUNDS;
     },
 
     shuffleMovie: async (
