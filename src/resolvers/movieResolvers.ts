@@ -278,140 +278,242 @@ export const movieResolvers = {
       context: Context
     ): Promise<Movie | null> => {
       try {
-        // Build TMDB options with new parameters
-        const popularityRange = args.popularityRange || 
-          (args.popularityLevel ? getPopularityRange(args.popularityLevel) : undefined);
-        const options = convertGraphQLOptionsToTMDBOptions({
-          voteAverageGte: args.minVoteAverage,
-          voteCountGte: args.minVoteCount,
-          withOriginalLanguage: args.originalLanguage,
-          popularityGte: popularityRange?.[0],
-          popularityLte: popularityRange?.[1],
-        });
-
-        // Get user for collection filtering (if needed)
-        const user = context.user;
-        let inCollectionIds: Set<number> | null = null;
-        let excludeCollectionIds: Set<number> | null = null;
-        let allCollectionMovieIds: Set<number> | null = null;
-
-        // Handle collection filtering if user is authenticated
-        if (user) {
-          if (args.inCollections && args.inCollections.length > 0) {
-            const movieIds = await getMovieIdsFromCollections(
-              context.prisma,
-              user.id,
-              args.inCollections
-            );
-            inCollectionIds = new Set(movieIds);
-          }
-
-          if (args.excludeCollections && args.excludeCollections.length > 0) {
-            const movieIds = await getMovieIdsFromCollections(
-              context.prisma,
-              user.id,
-              args.excludeCollections
-            );
-            excludeCollectionIds = new Set(movieIds);
-          }
-
-          if (args.notInAnyCollection) {
-            const movieIds = await getAllMovieIdsInCollections(
-              context.prisma,
-              user.id
-            );
-            allCollectionMovieIds = new Set(movieIds);
-          }
-        }
-
-        // Filter cast to only actors and crew to only directors/writers
-        const actorIds = args.cast
-          ? await context.tmdb.filterToActorsOnly(args.cast)
-          : undefined;
-        const crewIds = args.crew
-          ? await context.tmdb.filterToCrewOnly(args.crew)
-          : undefined;
-
-        // Build discover params with all filters
-        // yearRange should be [minYear, maxYear] format
-        const discoverFilters = {
-          genres: args.genres,
-          yearRange: args.yearRange,
-          cast: actorIds,
-          actors: actorIds,
-          crew: crewIds,
-          runtimeRange: args.runtimeRange,
-          watchProviders: args.watchProviders,
-          excludeGenres: args.excludeGenres,
-          excludeCast: args.excludeCast,
-          excludeCrew: args.excludeCrew,
-          popularityRange: args.popularityRange,
-          popularityLevel: args.popularityLevel,
-          originCountries: args.originCountries,
-          keywords: args.keywordIds,
-        };
-
-        // First attempt: try with ALL provided filters (AND logic - all must match)
-        // This ensures all parameters are used together
-        let discoverParams = buildDiscoverParams(discoverFilters, false);
-        let tmdbMovies = await context.tmdb.discoverMovies(
-          discoverParams,
-          options
-        );
-
-        // Apply collection filtering
-        if (inCollectionIds || excludeCollectionIds || args.notInAnyCollection) {
-          tmdbMovies = filterMoviesByCollections(
-            tmdbMovies as Array<{ id: number }>,
-            inCollectionIds,
-            excludeCollectionIds,
-            args.notInAnyCollection || false,
-            allCollectionMovieIds
-          );
-        }
-
-        // Only try fallback if:
-        // 1. No results found
-        // 2. We have multiple genres/actors/crew (can try with fewer)
-        // 3. We don't have strict filters like yearRange, runtimeRange, vote filters, popularity, exclusion filters, keywords, or collection filters (these should always be respected)
-        const hasStrictFilters = !!(
+        // Check if any parameters are provided
+        const hasAnyParams = !!(
+          args.genres ||
           args.yearRange ||
-          args.runtimeRange ||
+          args.cast ||
+          args.crew ||
           args.minVoteAverage ||
           args.minVoteCount ||
+          args.runtimeRange ||
           args.originalLanguage ||
-          args.popularityRange ||
-          args.popularityLevel ||
           args.watchProviders ||
           args.excludeGenres ||
           args.excludeCast ||
           args.excludeCrew ||
+          args.popularityRange ||
+          args.popularityLevel ||
           args.originCountries ||
           args.keywordIds ||
           args.inCollections ||
           args.excludeCollections ||
           args.notInAnyCollection
         );
-        
-        if (tmdbMovies.length === 0 && shouldTryFallback(discoverFilters) && !hasStrictFilters) {
-          discoverParams = buildDiscoverParams(discoverFilters, true);
+
+        // Helper function to generate random parameters
+        const generateRandomParams = async (): Promise<ShuffleMovieArgs> => {
+          const randomArgs: ShuffleMovieArgs = {};
+          
+          // Get available genres
+          const allGenres = await context.tmdb.getGenres();
+          const genreIds = allGenres.map((g) => g.id);
+
+          // Randomly select 1-3 genres
+          const numGenres = Math.floor(Math.random() * 3) + 1; // 1, 2, or 3
+          const shuffledGenres = [...genreIds].sort(() => Math.random() - 0.5);
+          randomArgs.genres = shuffledGenres.slice(0, numGenres);
+
+          // Randomly select a popularity level (HIGH, AVERAGE, or LOW)
+          const popularityLevels: Array<"HIGH" | "AVERAGE" | "LOW"> = ["HIGH", "AVERAGE", "LOW"];
+          randomArgs.popularityLevel = pickRandomItem(popularityLevels);
+
+          // Randomly select a decade/year range (last 50 years)
+          const currentYear = new Date().getFullYear();
+          const startYear = currentYear - 50;
+          const decadeStart = startYear + Math.floor(Math.random() * 5) * 10; // Random decade start
+          const decadeEnd = Math.min(decadeStart + 9, currentYear);
+          randomArgs.yearRange = [decadeStart, decadeEnd];
+
+          // 30% chance to add random runtime range
+          if (Math.random() < 0.3) {
+            const runtimeOptions = [
+              [60, 90],   // Short
+              [90, 120],  // Medium
+              [120, 150], // Long
+              [150, 200], // Very long
+            ];
+            randomArgs.runtimeRange = pickRandomItem(runtimeOptions);
+          }
+
+          // 20% chance to add minimum vote average (5.0-7.5)
+          if (Math.random() < 0.2) {
+            randomArgs.minVoteAverage = 5.0 + Math.random() * 2.5; // Random between 5.0 and 7.5
+          }
+
+          return randomArgs;
+        };
+
+        // If no parameters provided, generate random ones for better randomization
+        let randomArgs = { ...args };
+        const wasRandomGenerated = !hasAnyParams;
+        if (wasRandomGenerated) {
+          randomArgs = await generateRandomParams();
+        }
+
+        // Maximum retries when using random parameters (to ensure we get a result)
+        const maxRetries = wasRandomGenerated ? 5 : 0;
+        let attempts = 0;
+        let tmdbMovies: unknown[] = [];
+        let options: any;
+        let discoverFilters: any;
+        let discoverParams: any;
+        let inCollectionIds: Set<number> | null = null;
+        let excludeCollectionIds: Set<number> | null = null;
+        let allCollectionMovieIds: Set<number> | null = null;
+
+        while (attempts <= maxRetries) {
+          // Build TMDB options with new parameters
+          const popularityRange = randomArgs.popularityRange || 
+            (randomArgs.popularityLevel ? getPopularityRange(randomArgs.popularityLevel) : undefined);
+          options = convertGraphQLOptionsToTMDBOptions({
+            voteAverageGte: randomArgs.minVoteAverage,
+            voteCountGte: randomArgs.minVoteCount,
+            withOriginalLanguage: randomArgs.originalLanguage,
+            popularityGte: popularityRange?.[0],
+            popularityLte: popularityRange?.[1],
+          });
+
+          // Get user for collection filtering (if needed)
+          const user = context.user;
+
+          // Handle collection filtering if user is authenticated
+          if (user) {
+            if (randomArgs.inCollections && randomArgs.inCollections.length > 0) {
+              const movieIds = await getMovieIdsFromCollections(
+                context.prisma,
+                user.id,
+                randomArgs.inCollections
+              );
+              inCollectionIds = new Set(movieIds);
+            }
+
+            if (randomArgs.excludeCollections && randomArgs.excludeCollections.length > 0) {
+              const movieIds = await getMovieIdsFromCollections(
+                context.prisma,
+                user.id,
+                randomArgs.excludeCollections
+              );
+              excludeCollectionIds = new Set(movieIds);
+            }
+
+            if (randomArgs.notInAnyCollection) {
+              const movieIds = await getAllMovieIdsInCollections(
+                context.prisma,
+                user.id
+              );
+              allCollectionMovieIds = new Set(movieIds);
+            }
+          }
+
+          // Filter cast to only actors and crew to only directors/writers
+          const actorIds = randomArgs.cast
+            ? await context.tmdb.filterToActorsOnly(randomArgs.cast)
+            : undefined;
+          const crewIds = randomArgs.crew
+            ? await context.tmdb.filterToCrewOnly(randomArgs.crew)
+            : undefined;
+
+          // Build discover params with all filters (using randomArgs if generated)
+          // yearRange should be [minYear, maxYear] format
+          discoverFilters = {
+            genres: randomArgs.genres,
+            yearRange: randomArgs.yearRange,
+            cast: actorIds,
+            actors: actorIds,
+            crew: crewIds,
+            runtimeRange: randomArgs.runtimeRange,
+            watchProviders: randomArgs.watchProviders,
+            excludeGenres: randomArgs.excludeGenres,
+            excludeCast: randomArgs.excludeCast,
+            excludeCrew: randomArgs.excludeCrew,
+            popularityRange: randomArgs.popularityRange,
+            popularityLevel: randomArgs.popularityLevel,
+            originCountries: randomArgs.originCountries,
+            keywords: randomArgs.keywordIds,
+          };
+
+          // First attempt: try with ALL provided filters (AND logic - all must match)
+          // This ensures all parameters are used together
+          discoverParams = buildDiscoverParams(discoverFilters, false);
           tmdbMovies = await context.tmdb.discoverMovies(
             discoverParams,
             options
           );
-          
-          // Apply collection filtering to fallback results too
-          if (inCollectionIds || excludeCollectionIds || args.notInAnyCollection) {
+
+          // Apply collection filtering
+          if (inCollectionIds || excludeCollectionIds || randomArgs.notInAnyCollection) {
             tmdbMovies = filterMoviesByCollections(
               tmdbMovies as Array<{ id: number }>,
               inCollectionIds,
               excludeCollectionIds,
-              args.notInAnyCollection || false,
+              randomArgs.notInAnyCollection || false,
               allCollectionMovieIds
             );
           }
+
+          // Only try fallback if:
+          // 1. No results found
+          // 2. We have multiple genres/actors/crew (can try with fewer)
+          // 3. We don't have strict filters like yearRange, runtimeRange, vote filters, popularity, exclusion filters, keywords, or collection filters (these should always be respected)
+          // Note: If random params were generated, we still respect them as strict filters to maintain randomness
+          const hasStrictFilters = !!(
+            randomArgs.yearRange ||
+            randomArgs.runtimeRange ||
+            randomArgs.minVoteAverage ||
+            randomArgs.minVoteCount ||
+            randomArgs.originalLanguage ||
+            randomArgs.popularityRange ||
+            randomArgs.popularityLevel ||
+            randomArgs.watchProviders ||
+            randomArgs.excludeGenres ||
+            randomArgs.excludeCast ||
+            randomArgs.excludeCrew ||
+            randomArgs.originCountries ||
+            randomArgs.keywordIds ||
+            randomArgs.inCollections ||
+            randomArgs.excludeCollections ||
+            randomArgs.notInAnyCollection
+          );
+          
+          if (tmdbMovies.length === 0 && shouldTryFallback(discoverFilters) && !hasStrictFilters) {
+            discoverParams = buildDiscoverParams(discoverFilters, true);
+            tmdbMovies = await context.tmdb.discoverMovies(
+              discoverParams,
+              options
+            );
+            
+            // Apply collection filtering to fallback results too
+            if (inCollectionIds || excludeCollectionIds || randomArgs.notInAnyCollection) {
+              tmdbMovies = filterMoviesByCollections(
+                tmdbMovies as Array<{ id: number }>,
+                inCollectionIds,
+                excludeCollectionIds,
+                randomArgs.notInAnyCollection || false,
+                allCollectionMovieIds
+              );
+            }
+          }
+
+          // If we found results, break out of retry loop
+          if (tmdbMovies.length > 0) {
+            break;
+          }
+
+          // If no results and we're using random params, try again with new random params
+          if (wasRandomGenerated && attempts < maxRetries) {
+            attempts++;
+            // Generate new random parameters for next iteration
+            randomArgs = await generateRandomParams();
+            // Continue to next iteration with new random params
+            continue;
+          }
+
+          // If we've exhausted retries or user provided params, break
+          break;
         }
 
+        // If still no results after retries, return null
         if (tmdbMovies.length === 0) {
           return null;
         }

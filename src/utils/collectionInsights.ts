@@ -17,7 +17,7 @@ interface PersonCount {
   count: number;
 }
 
-interface CollectionInsightsData {
+export interface CollectionInsightsData {
   totalMovies: number;
   uniqueGenres: number;
   moviesByGenre: GenreCount[];
