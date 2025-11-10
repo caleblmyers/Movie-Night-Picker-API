@@ -4,6 +4,7 @@ import { handleError } from "../utils/errorHandler";
 import { verifyCollectionOwnership } from "../utils/dbHelpers";
 import { validateCollectionName } from "../utils/validationHelpers";
 import { calculateCollectionInsights } from "../utils/collectionInsights";
+import { verifyCollectionAccess, extractCollectionAnalysis } from "../utils/collectionHelpers";
 import {
   GetCollectionArgs,
   CreateCollectionArgs,
@@ -70,19 +71,7 @@ export const collectionResolvers = {
       const user = requireAuth(context);
 
       try {
-        // Verify collection exists and user has access
-        const collection = await context.prisma.collection.findUnique({
-          where: { id: args.collectionId },
-        });
-
-        if (!collection) {
-          throw new Error(ERROR_MESSAGES.COLLECTION_NOT_FOUND);
-        }
-
-        if (collection.userId !== user.id && !collection.isPublic) {
-          throw new Error(ERROR_MESSAGES.COLLECTION_NO_ACCESS);
-        }
-
+        await verifyCollectionAccess(context.prisma, args.collectionId, user.id);
         return calculateCollectionInsights(args.collectionId, context);
       } catch (error) {
         throw handleError(error, "Failed to fetch collection insights");
@@ -97,24 +86,13 @@ export const collectionResolvers = {
       const user = requireAuth(context);
 
       try {
-        // Verify collection exists and user has access
-        const collection = await context.prisma.collection.findUnique({
-          where: { id: args.collectionId },
-        });
-
-        if (!collection) {
-          throw new Error(ERROR_MESSAGES.COLLECTION_NOT_FOUND);
-        }
-
-        if (collection.userId !== user.id && !collection.isPublic) {
-          throw new Error(ERROR_MESSAGES.COLLECTION_NO_ACCESS);
-        }
-
+        await verifyCollectionAccess(context.prisma, args.collectionId, user.id);
+        
         // Get insights
         const insights = await calculateCollectionInsights(args.collectionId, context);
         const limit = args.limit || 10;
 
-        // Extract top items
+        // Transform to GraphQL format
         return {
           topGenres: insights.moviesByGenre
             .slice(0, limit)

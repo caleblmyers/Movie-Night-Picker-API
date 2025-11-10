@@ -50,60 +50,63 @@ export async function calculateCollectionInsights(
     select: { tmdbId: true },
   });
 
+  // Empty insights object (reused for early returns)
+  const emptyInsights: CollectionInsightsData = {
+    totalMovies: 0,
+    uniqueGenres: 0,
+    moviesByGenre: [],
+    uniqueKeywords: 0,
+    topKeywords: [],
+    uniqueActors: 0,
+    topActors: [],
+    uniqueCrew: 0,
+    topCrew: [],
+    yearRange: null,
+    averageRuntime: null,
+    averageVoteAverage: null,
+  };
+
   if (collectionMovies.length === 0) {
-    return {
-      totalMovies: 0,
-      uniqueGenres: 0,
-      moviesByGenre: [],
-      uniqueKeywords: 0,
-      topKeywords: [],
-      uniqueActors: 0,
-      topActors: [],
-      uniqueCrew: 0,
-      topCrew: [],
-      yearRange: null,
-      averageRuntime: null,
-      averageVoteAverage: null,
-    };
+    return emptyInsights;
   }
 
   // Fetch full movie details and keywords from TMDB (in batches to avoid overwhelming the API)
   const movieIds = collectionMovies.map((cm) => cm.tmdbId);
   const batchSize = 10;
   const movies: Movie[] = [];
-  const keywordPromises = movieIds.map((id) =>
-    context.tmdb.getMovieKeywords(id).catch(() => ({ keywords: [] }))
-  );
-  const keywordResults = await Promise.all(keywordPromises);
+  const keywordsByMovieId = new Map<number, Array<{ id: number; name: string }>>();
 
+  // Fetch movies and keywords in parallel batches
   for (let i = 0; i < movieIds.length; i += batchSize) {
     const batch = movieIds.slice(i, i + batchSize);
-    const moviePromises = batch.map((id) =>
-      context.tmdb
-        .getMovie(id, undefined, true)
-        .then((movie) => transformTMDBMovie(movie as TMDBMovieResponse))
-        .catch(() => null)
-    );
-    const batchMovies = await Promise.all(moviePromises);
+    
+    // Fetch movies and keywords in parallel for each batch
+    const batchPromises = batch.map(async (id) => {
+      const [movieResult, keywordResult] = await Promise.all([
+        context.tmdb
+          .getMovie(id, undefined, true)
+          .then((movie) => transformTMDBMovie(movie as TMDBMovieResponse))
+          .catch(() => null),
+        context.tmdb
+          .getMovieKeywords(id)
+          .then((data) => data.keywords || [])
+          .catch(() => []),
+      ]);
+      
+      if (movieResult) {
+        keywordsByMovieId.set(id, keywordResult);
+        return movieResult;
+      }
+      return null;
+    });
+    
+    const batchMovies = await Promise.all(batchPromises);
     movies.push(...(batchMovies.filter((m) => m !== null) as Movie[]));
   }
 
   // If no movies were successfully fetched, return empty insights
   if (movies.length === 0) {
-    return {
-      totalMovies: 0,
-      uniqueGenres: 0,
-      moviesByGenre: [],
-      uniqueKeywords: 0,
-      topKeywords: [],
-      uniqueActors: 0,
-      topActors: [],
-      uniqueCrew: 0,
-      topCrew: [],
-      yearRange: null,
-      averageRuntime: null,
-      averageVoteAverage: null,
-    };
+    return emptyInsights;
   }
 
   // Calculate statistics
@@ -116,59 +119,55 @@ export async function calculateCollectionInsights(
     number,
     { id: number; name: string; profileUrl: string | null; count: number }
   >();
-  const keywordMap = new Map<number, { id: number; name: string; count: number }>();
+  const keywordCountMap = new Map<number, { id: number; name: string; count: number }>();
   const years: number[] = [];
   const runtimes: number[] = [];
   const voteAverages: number[] = [];
 
-  movies.forEach((movie, index) => {
+  // Helper function to increment map count
+  const incrementMapCount = <T extends { id: number }>(
+    map: Map<number, T & { count: number }>,
+    item: T,
+    createFn: (item: T) => T & { count: number }
+  ) => {
+    const existing = map.get(item.id);
+    if (existing) {
+      existing.count++;
+    } else {
+      map.set(item.id, createFn(item));
+    }
+  };
+
+  movies.forEach((movie) => {
     // Genres
     if (movie.genres) {
       movie.genres.forEach((genre) => {
-        const existing = genreMap.get(genre.id);
-        if (existing) {
-          existing.count++;
-        } else {
-          genreMap.set(genre.id, {
-            id: genre.id,
-            name: genre.name,
-            count: 1,
-          });
-        }
+        incrementMapCount(genreMap, genre, (g) => ({
+          ...g,
+          count: 1,
+        }));
       });
     }
 
-    // Keywords
-    const keywordData = keywordResults[index];
-    if (keywordData?.keywords) {
-      keywordData.keywords.forEach((keyword: { id: number; name: string }) => {
-        const existing = keywordMap.get(keyword.id);
-        if (existing) {
-          existing.count++;
-        } else {
-          keywordMap.set(keyword.id, {
-            id: keyword.id,
-            name: keyword.name,
-            count: 1,
-          });
-        }
+    // Keywords - use movie ID to get keywords from map
+    const keywords = keywordsByMovieId.get(movie.id);
+    if (keywords) {
+      keywords.forEach((keyword) => {
+        incrementMapCount(keywordCountMap, keyword, (k) => ({
+          ...k,
+          count: 1,
+        }));
       });
     }
 
     // Actors
     if (movie.cast) {
       movie.cast.forEach((actor) => {
-        const existing = actorMap.get(actor.id);
-        if (existing) {
-          existing.count++;
-        } else {
-          actorMap.set(actor.id, {
-            id: actor.id,
-            name: actor.name,
-            profileUrl: actor.profileUrl ?? null,
-            count: 1,
-          });
-        }
+        incrementMapCount(actorMap, actor, (a) => ({
+          ...a,
+          profileUrl: a.profileUrl ?? null,
+          count: 1,
+        }));
       });
     }
 
@@ -184,17 +183,11 @@ export async function calculateCollectionInsights(
           member.job === "Screenplay" ||
           member.job === "Story"
         ) {
-          const existing = crewMap.get(member.id);
-          if (existing) {
-            existing.count++;
-          } else {
-            crewMap.set(member.id, {
-              id: member.id,
-              name: member.name,
-              profileUrl: member.profileUrl ?? null,
-              count: 1,
-            });
-          }
+          incrementMapCount(crewMap, member, (m) => ({
+            ...m,
+            profileUrl: m.profileUrl ?? null,
+            count: 1,
+          }));
         }
       });
     }
@@ -219,7 +212,7 @@ export async function calculateCollectionInsights(
   });
 
   // Sort and get top keywords
-  const topKeywords = Array.from(keywordMap.values())
+  const topKeywords = Array.from(keywordCountMap.values())
     .sort((a, b) => b.count - a.count)
     .slice(0, 20)
     .map((keyword) => ({
@@ -280,7 +273,7 @@ export async function calculateCollectionInsights(
         genre: { id: genre.id, name: genre.name },
         count: genre.count,
       })),
-    uniqueKeywords: keywordMap.size,
+    uniqueKeywords: keywordCountMap.size,
     topKeywords,
     uniqueActors: actorMap.size,
     topActors,

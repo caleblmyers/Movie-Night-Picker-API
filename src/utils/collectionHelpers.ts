@@ -4,7 +4,33 @@
 
 import { PrismaClient } from "@prisma/client";
 import { Context } from "../context";
-import { calculateCollectionInsights } from "./collectionInsights";
+import { calculateCollectionInsights, CollectionInsightsData } from "./collectionInsights";
+import { ERROR_MESSAGES } from "../constants";
+
+/**
+ * Verify collection exists and user has access (owner or public)
+ * Throws error if access denied
+ */
+export async function verifyCollectionAccess(
+  prisma: PrismaClient,
+  collectionId: number,
+  userId: number
+): Promise<{ id: number; userId: number; isPublic: boolean }> {
+  const collection = await prisma.collection.findUnique({
+    where: { id: collectionId },
+    select: { id: true, userId: true, isPublic: true },
+  });
+
+  if (!collection) {
+    throw new Error(ERROR_MESSAGES.COLLECTION_NOT_FOUND);
+  }
+
+  if (collection.userId !== userId && !collection.isPublic) {
+    throw new Error(ERROR_MESSAGES.COLLECTION_NO_ACCESS);
+  }
+
+  return collection;
+}
 
 /**
  * Get all movie IDs from specified collections
@@ -63,19 +89,6 @@ export async function getAllMovieIdsInCollections(
   return collectionMovies.map((cm) => cm.tmdbId);
 }
 
-/**
- * Get all movie IDs that are NOT in any collection for the user
- */
-export async function getMovieIdsNotInAnyCollection(
-  prisma: PrismaClient,
-  userId: number
-): Promise<number[]> {
-  // This is a bit tricky - we need to get all movies that exist in TMDB
-  // but are not in any collection. Since we don't have a full list of TMDB movies,
-  // we'll return an empty array and handle this in the filtering logic
-  // by checking if a movie ID is in the "all collections" set
-  return [];
-}
 
 /**
  * Filter movies based on collection criteria
@@ -116,13 +129,46 @@ export function filterMoviesByCollections(
 }
 
 /**
+ * Extract analysis data from collection insights for filtering
+ * This is a pure function that transforms insights data
+ */
+export function extractCollectionAnalysis(
+  insights: CollectionInsightsData,
+  limit: number = 10
+): {
+  genres?: number[];
+  keywords?: number[];
+  actors?: number[];
+  crew?: number[];
+  yearRange?: number[];
+} {
+  return {
+    genres: insights.moviesByGenre
+      .slice(0, limit)
+      .map((gc) => gc.genre.id),
+    keywords: insights.topKeywords
+      .slice(0, limit)
+      .map((kc) => kc.keyword.id),
+    actors: insights.topActors
+      .slice(0, limit)
+      .map((ac) => ac.person.id),
+    crew: insights.topCrew
+      .slice(0, limit)
+      .map((cc) => cc.person.id),
+    yearRange: insights.yearRange ? [insights.yearRange.min, insights.yearRange.max] : undefined,
+  };
+}
+
+/**
  * Get collection analysis (top genres, keywords, actors) for filtering
  * Returns top items that can be merged with existing filters
+ * Optionally accepts pre-calculated insights to avoid duplicate computation
  */
 export async function getCollectionAnalysisForFiltering(
   collectionId: number,
   context: Context,
-  limit: number = 10
+  limit: number = 10,
+  preCalculatedInsights?: CollectionInsightsData
 ): Promise<{
   genres?: number[];
   keywords?: number[];
@@ -131,23 +177,8 @@ export async function getCollectionAnalysisForFiltering(
   yearRange?: number[];
 }> {
   try {
-    const insights = await calculateCollectionInsights(collectionId, context);
-    
-    return {
-      genres: insights.moviesByGenre
-        .slice(0, limit)
-        .map((gc) => gc.genre.id),
-      keywords: insights.topKeywords
-        .slice(0, limit)
-        .map((kc) => kc.keyword.id),
-      actors: insights.topActors
-        .slice(0, limit)
-        .map((ac) => ac.person.id),
-      crew: insights.topCrew
-        .slice(0, limit)
-        .map((cc) => cc.person.id),
-      yearRange: insights.yearRange ? [insights.yearRange.min, insights.yearRange.max] : undefined,
-    };
+    const insights = preCalculatedInsights || await calculateCollectionInsights(collectionId, context);
+    return extractCollectionAnalysis(insights, limit);
   } catch (error) {
     // If collection analysis fails, return empty (don't break the query)
     return {};
