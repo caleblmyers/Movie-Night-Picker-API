@@ -53,6 +53,10 @@ export interface SearchMoviesArgs {
   query: string;
   limit?: number;
   popularityLevel?: "HIGH" | "AVERAGE" | "LOW";
+  filterByCollectionAnalysis?: number;
+  inCollections?: number[];
+  excludeCollections?: number[];
+  notInAnyCollection?: boolean;
   options?: GraphQLOptionsInput;
 }
 
@@ -75,6 +79,10 @@ export interface DiscoverMoviesArgs {
   popularityLevel?: "HIGH" | "AVERAGE" | "LOW";
   originCountries?: string[];
   keywordIds?: number[];
+  filterByCollectionAnalysis?: number;
+  inCollections?: number[];
+  excludeCollections?: number[];
+  notInAnyCollection?: boolean;
   options?: GraphQLOptionsInput;
 }
 
@@ -118,6 +126,7 @@ export interface ShuffleMovieArgs {
   popularityLevel?: "HIGH" | "AVERAGE" | "LOW";
   originCountries?: string[];
   keywordIds?: number[];
+  filterByCollectionAnalysis?: number;
   inCollections?: number[];
   excludeCollections?: number[];
   notInAnyCollection?: boolean;
@@ -208,6 +217,11 @@ export interface GetCollectionArgs {
 
 export interface CollectionInsightsArgs {
   collectionId: number;
+}
+
+export interface CollectionAnalysisArgs {
+  collectionId: number;
+  limit?: number;
 }
 
 /**

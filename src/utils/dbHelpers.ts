@@ -58,22 +58,54 @@ export async function findUserReview(
 }
 
 /**
- * Check if user has saved a movie
+ * Get or create the "Saved Movies" collection for a user
+ */
+export async function getOrCreateSavedMoviesCollection(
+  prisma: PrismaClient,
+  userId: number
+) {
+  // Try to find existing "Saved Movies" collection
+  let collection = await prisma.collection.findFirst({
+    where: {
+      userId,
+      name: "Saved Movies",
+    },
+  });
+
+  // If it doesn't exist, create it
+  if (!collection) {
+    collection = await prisma.collection.create({
+      data: {
+        name: "Saved Movies",
+        description: "Movies you've saved",
+        isPublic: false,
+        userId,
+      },
+    });
+  }
+
+  return collection;
+}
+
+/**
+ * Check if user has saved a movie (checks the "Saved Movies" collection)
  */
 export async function isMovieSaved(
   prisma: PrismaClient,
   userId: number,
   tmdbId: number
 ): Promise<boolean> {
-  const savedMovie = await prisma.savedMovie.findUnique({
+  const collection = await getOrCreateSavedMoviesCollection(prisma, userId);
+  
+  const collectionMovie = await prisma.collectionMovie.findUnique({
     where: {
-      userId_tmdbId: {
-        userId,
+      collectionId_tmdbId: {
+        collectionId: collection.id,
         tmdbId,
       },
     },
   });
-  return !!savedMovie;
+  return !!collectionMovie;
 }
 
 /**

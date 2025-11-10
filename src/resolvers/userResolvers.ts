@@ -10,14 +10,17 @@ import {
   UpdateNameArgs,
 } from "../types/resolvers";
 import { ERROR_MESSAGES, MIN_RATING, MAX_RATING } from "../constants";
+import { getOrCreateSavedMoviesCollection } from "../utils/dbHelpers";
 
 /**
- * Helper function to fetch user's saved movies
+ * Helper function to fetch user's saved movies from the "Saved Movies" collection
  */
 async function getUserSavedMovies(userId: number, prisma: Context["prisma"]) {
-  return prisma.savedMovie.findMany({
-    where: { userId },
-    orderBy: { createdAt: "desc" },
+  const collection = await getOrCreateSavedMoviesCollection(prisma, userId);
+  
+  return prisma.collectionMovie.findMany({
+    where: { collectionId: collection.id },
+    orderBy: { addedAt: "desc" },
   });
 }
 
@@ -85,11 +88,17 @@ export const userResolvers = {
       const user = requireAuth(context);
 
       try {
-        // Check if movie is already saved
-        const existing = await context.prisma.savedMovie.findUnique({
+        // Get or create the "Saved Movies" collection
+        const collection = await getOrCreateSavedMoviesCollection(
+          context.prisma,
+          user.id
+        );
+
+        // Check if movie is already in the collection
+        const existing = await context.prisma.collectionMovie.findUnique({
           where: {
-            userId_tmdbId: {
-              userId: user.id,
+            collectionId_tmdbId: {
+              collectionId: collection.id,
               tmdbId: args.tmdbId,
             },
           },
@@ -99,10 +108,10 @@ export const userResolvers = {
           return existing;
         }
 
-        // Save the movie
-        return context.prisma.savedMovie.create({
+        // Add movie to the "Saved Movies" collection
+        return context.prisma.collectionMovie.create({
           data: {
-            userId: user.id,
+            collectionId: collection.id,
             tmdbId: args.tmdbId,
           },
         });
@@ -119,9 +128,16 @@ export const userResolvers = {
       const user = requireAuth(context);
 
       try {
-        await context.prisma.savedMovie.deleteMany({
+        // Get the "Saved Movies" collection
+        const collection = await getOrCreateSavedMoviesCollection(
+          context.prisma,
+          user.id
+        );
+
+        // Remove movie from the collection
+        await context.prisma.collectionMovie.deleteMany({
           where: {
-            userId: user.id,
+            collectionId: collection.id,
             tmdbId: args.tmdbId,
           },
         });

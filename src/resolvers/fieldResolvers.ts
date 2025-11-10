@@ -6,6 +6,7 @@ import {
   findUserReview,
   isMovieSaved,
   calculateAverageRating,
+  getOrCreateSavedMoviesCollection,
 } from "../utils/dbHelpers";
 import { extractTrailer, transformTMDBMovie } from "../utils/transformers";
 import { GENRE_ICONS } from "../constants";
@@ -19,9 +20,13 @@ export const fieldResolvers = {
       _args: unknown,
       context: Context
     ) => {
-      return context.prisma.savedMovie.findMany({
-        where: { userId: user.id },
-        orderBy: { createdAt: "desc" },
+      const collection = await getOrCreateSavedMoviesCollection(
+        context.prisma,
+        user.id
+      );
+      return context.prisma.collectionMovie.findMany({
+        where: { collectionId: collection.id },
+        orderBy: { addedAt: "desc" },
       });
     },
     ratings: async (user: { id: number }, _args: unknown, context: Context) => {
@@ -49,8 +54,9 @@ export const fieldResolvers = {
   },
 
   SavedMovie: {
-    createdAt: (savedMovie: { createdAt: Date }) =>
-      savedMovie.createdAt.toISOString(),
+    // Map CollectionMovie.addedAt to SavedMovie.createdAt for compatibility
+    createdAt: (savedMovie: { createdAt?: Date; addedAt?: Date }) =>
+      (savedMovie.createdAt || savedMovie.addedAt)?.toISOString() || new Date().toISOString(),
     movie: async (
       savedMovie: { tmdbId: number },
       _args: unknown,

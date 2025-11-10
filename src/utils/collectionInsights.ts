@@ -17,10 +17,17 @@ interface PersonCount {
   count: number;
 }
 
+interface KeywordCount {
+  keyword: { id: number; name: string };
+  count: number;
+}
+
 export interface CollectionInsightsData {
   totalMovies: number;
   uniqueGenres: number;
   moviesByGenre: GenreCount[];
+  uniqueKeywords: number;
+  topKeywords: KeywordCount[];
   uniqueActors: number;
   topActors: PersonCount[];
   uniqueCrew: number;
@@ -48,6 +55,8 @@ export async function calculateCollectionInsights(
       totalMovies: 0,
       uniqueGenres: 0,
       moviesByGenre: [],
+      uniqueKeywords: 0,
+      topKeywords: [],
       uniqueActors: 0,
       topActors: [],
       uniqueCrew: 0,
@@ -58,10 +67,14 @@ export async function calculateCollectionInsights(
     };
   }
 
-  // Fetch full movie details from TMDB (in batches to avoid overwhelming the API)
+  // Fetch full movie details and keywords from TMDB (in batches to avoid overwhelming the API)
   const movieIds = collectionMovies.map((cm) => cm.tmdbId);
   const batchSize = 10;
   const movies: Movie[] = [];
+  const keywordPromises = movieIds.map((id) =>
+    context.tmdb.getMovieKeywords(id).catch(() => ({ keywords: [] }))
+  );
+  const keywordResults = await Promise.all(keywordPromises);
 
   for (let i = 0; i < movieIds.length; i += batchSize) {
     const batch = movieIds.slice(i, i + batchSize);
@@ -81,6 +94,8 @@ export async function calculateCollectionInsights(
       totalMovies: 0,
       uniqueGenres: 0,
       moviesByGenre: [],
+      uniqueKeywords: 0,
+      topKeywords: [],
       uniqueActors: 0,
       topActors: [],
       uniqueCrew: 0,
@@ -101,11 +116,12 @@ export async function calculateCollectionInsights(
     number,
     { id: number; name: string; profileUrl: string | null; count: number }
   >();
+  const keywordMap = new Map<number, { id: number; name: string; count: number }>();
   const years: number[] = [];
   const runtimes: number[] = [];
   const voteAverages: number[] = [];
 
-  movies.forEach((movie) => {
+  movies.forEach((movie, index) => {
     // Genres
     if (movie.genres) {
       movie.genres.forEach((genre) => {
@@ -116,6 +132,23 @@ export async function calculateCollectionInsights(
           genreMap.set(genre.id, {
             id: genre.id,
             name: genre.name,
+            count: 1,
+          });
+        }
+      });
+    }
+
+    // Keywords
+    const keywordData = keywordResults[index];
+    if (keywordData?.keywords) {
+      keywordData.keywords.forEach((keyword: { id: number; name: string }) => {
+        const existing = keywordMap.get(keyword.id);
+        if (existing) {
+          existing.count++;
+        } else {
+          keywordMap.set(keyword.id, {
+            id: keyword.id,
+            name: keyword.name,
             count: 1,
           });
         }
@@ -185,6 +218,18 @@ export async function calculateCollectionInsights(
     }
   });
 
+  // Sort and get top keywords
+  const topKeywords = Array.from(keywordMap.values())
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 20)
+    .map((keyword) => ({
+      keyword: {
+        id: keyword.id,
+        name: keyword.name,
+      },
+      count: keyword.count,
+    }));
+
   // Sort and get top actors/crew
   const topActors = Array.from(actorMap.values())
     .sort((a, b) => b.count - a.count)
@@ -235,6 +280,8 @@ export async function calculateCollectionInsights(
         genre: { id: genre.id, name: genre.name },
         count: genre.count,
       })),
+    uniqueKeywords: keywordMap.size,
+    topKeywords,
     uniqueActors: actorMap.size,
     topActors,
     uniqueCrew: crewMap.size,

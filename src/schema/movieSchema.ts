@@ -90,7 +90,20 @@ export const movieSchema = gql`
     # TMDB automatically performs case-insensitive partial matching
     # limit: Maximum number of results to return (default: 20, max: 100)
     # popularityLevel: Filter by popularity level (HIGH, AVERAGE, LOW) - filters results after search
-    searchMovies(query: String!, limit: Int, popularityLevel: PopularityLevel, options: TMDBOptionsInput): [Movie!]!
+    # filterByCollectionAnalysis: Use top genres/keywords/actors from this collection ID to filter results
+    # inCollections: Only include movies from these collection IDs
+    # excludeCollections: Exclude movies from these collection IDs
+    # notInAnyCollection: Only include movies not in any collection
+    searchMovies(
+      query: String!
+      limit: Int
+      popularityLevel: PopularityLevel
+      filterByCollectionAnalysis: Int
+      inCollections: [Int!]
+      excludeCollections: [Int!]
+      notInAnyCollection: Boolean
+      options: TMDBOptionsInput
+    ): [Movie!]!
 
     # Search keywords by query string (for autocomplete in filter UI)
     # TMDB automatically performs case-insensitive partial matching
@@ -100,6 +113,7 @@ export const movieSchema = gql`
     # Discover movies with filters
     # cast: Only actors (filtered automatically)
     # crew: Only directors/writers (filtered automatically)
+    # filterByCollectionAnalysis: Use top genres/keywords/actors from this collection ID to filter results
     discoverMovies(
       genres: [Int!]
       yearRange: [Int!]
@@ -123,6 +137,11 @@ export const movieSchema = gql`
       originCountries: [String!]
       # Keyword IDs for thematic filtering (e.g., "superhero", "time travel")
       keywordIds: [Int!]
+      # Collection filtering options
+      filterByCollectionAnalysis: Int
+      inCollections: [Int!]
+      excludeCollections: [Int!]
+      notInAnyCollection: Boolean
       options: TMDBOptionsInput
     ): [Movie!]!
 
@@ -144,6 +163,7 @@ export const movieSchema = gql`
     # Accepts optional genres (as IDs), yearRange, cast (actors), crew (directors/writers),
     # minVoteAverage, minVoteCount, runtimeRange, originalLanguage, streaming providers,
     # excludeGenres, excludeCast, excludeCrew, popularityRange, and originCountries
+    # filterByCollectionAnalysis: Use top genres/keywords/actors from this collection ID to filter results
     # Returns null if no movies match the criteria
     shuffleMovie(
       genres: [Int!]
@@ -171,6 +191,8 @@ export const movieSchema = gql`
       # Keyword IDs for thematic filtering (e.g., "superhero", "time travel", "dystopia")
       keywordIds: [Int!]
       # Collection filtering options
+      # Use top genres/keywords/actors from this collection to filter results
+      filterByCollectionAnalysis: Int
       # Only include movies from these collection IDs
       inCollections: [Int!]
       # Exclude movies from these collection IDs

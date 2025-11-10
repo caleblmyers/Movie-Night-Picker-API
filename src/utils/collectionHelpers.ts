@@ -3,6 +3,8 @@
  */
 
 import { PrismaClient } from "@prisma/client";
+import { Context } from "../context";
+import { calculateCollectionInsights } from "./collectionInsights";
 
 /**
  * Get all movie IDs from specified collections
@@ -111,5 +113,44 @@ export function filterMoviesByCollections(
 
     return true;
   });
+}
+
+/**
+ * Get collection analysis (top genres, keywords, actors) for filtering
+ * Returns top items that can be merged with existing filters
+ */
+export async function getCollectionAnalysisForFiltering(
+  collectionId: number,
+  context: Context,
+  limit: number = 10
+): Promise<{
+  genres?: number[];
+  keywords?: number[];
+  actors?: number[];
+  crew?: number[];
+  yearRange?: number[];
+}> {
+  try {
+    const insights = await calculateCollectionInsights(collectionId, context);
+    
+    return {
+      genres: insights.moviesByGenre
+        .slice(0, limit)
+        .map((gc) => gc.genre.id),
+      keywords: insights.topKeywords
+        .slice(0, limit)
+        .map((kc) => kc.keyword.id),
+      actors: insights.topActors
+        .slice(0, limit)
+        .map((ac) => ac.person.id),
+      crew: insights.topCrew
+        .slice(0, limit)
+        .map((cc) => cc.person.id),
+      yearRange: insights.yearRange ? [insights.yearRange.min, insights.yearRange.max] : undefined,
+    };
+  } catch (error) {
+    // If collection analysis fails, return empty (don't break the query)
+    return {};
+  }
 }
 

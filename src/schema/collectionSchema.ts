@@ -22,6 +22,10 @@ export const collectionSchema = gql`
     uniqueGenres: Int!
     # Breakdown of movies by genre
     moviesByGenre: [GenreCount!]!
+    # Number of unique keywords
+    uniqueKeywords: Int!
+    # Top keywords by number of movies
+    topKeywords: [KeywordCount!]!
     # Number of unique actors
     uniqueActors: Int!
     # Top actors by number of movies
@@ -36,6 +40,11 @@ export const collectionSchema = gql`
     averageRuntime: Float
     # Average vote average
     averageVoteAverage: Float
+  }
+
+  type KeywordCount {
+    keyword: Keyword!
+    count: Int!
   }
 
   type GenreCount {
@@ -69,6 +78,23 @@ export const collectionSchema = gql`
 
     # Get insights/analytics for a collection
     collectionInsights(collectionId: Int!): CollectionInsights!
+
+    # Get collection analysis (top genres, keywords, actors) for filtering
+    # Returns top items that can be used to filter search/shuffle/suggest/discover
+    collectionAnalysis(collectionId: Int!, limit: Int): CollectionAnalysis!
+  }
+
+  type CollectionAnalysis {
+    # Top genres from the collection
+    topGenres: [Genre!]!
+    # Top keywords from the collection
+    topKeywords: [Keyword!]!
+    # Top actors from the collection
+    topActors: [Person!]!
+    # Top crew (directors/writers) from the collection
+    topCrew: [Person!]!
+    # Year range from the collection
+    yearRange: YearRange
   }
 
   extend type Mutation {

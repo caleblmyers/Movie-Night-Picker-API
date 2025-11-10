@@ -33,6 +33,7 @@ import {
   getMovieIdsFromCollections,
   getAllMovieIdsInCollections,
   filterMoviesByCollections,
+  getCollectionAnalysisForFiltering,
 } from "../utils/collectionHelpers";
 import {
   MOVIE_VIBES,
@@ -344,6 +345,51 @@ export const movieResolvers = {
           });
         }
 
+        // Apply collection filtering if provided
+        const user = context.user;
+        let inCollectionIds: Set<number> | null = null;
+        let excludeCollectionIds: Set<number> | null = null;
+        let allCollectionMovieIds: Set<number> | null = null;
+
+        if (user) {
+          if (args.inCollections && args.inCollections.length > 0) {
+            const movieIds = await getMovieIdsFromCollections(
+              context.prisma,
+              user.id,
+              args.inCollections
+            );
+            inCollectionIds = new Set(movieIds);
+          }
+
+          if (args.excludeCollections && args.excludeCollections.length > 0) {
+            const movieIds = await getMovieIdsFromCollections(
+              context.prisma,
+              user.id,
+              args.excludeCollections
+            );
+            excludeCollectionIds = new Set(movieIds);
+          }
+
+          if (args.notInAnyCollection) {
+            const movieIds = await getAllMovieIdsInCollections(
+              context.prisma,
+              user.id
+            );
+            allCollectionMovieIds = new Set(movieIds);
+          }
+        }
+
+        // Apply collection filtering
+        if (inCollectionIds || excludeCollectionIds || args.notInAnyCollection) {
+          tmdbMovies = filterMoviesByCollections(
+            tmdbMovies as Array<{ id: number }>,
+            inCollectionIds,
+            excludeCollectionIds,
+            args.notInAnyCollection || false,
+            allCollectionMovieIds
+          );
+        }
+
         // Apply final limit after filtering
         const finalResults = tmdbMovies.slice(0, limit);
         return finalResults.map((m) =>
@@ -381,19 +427,45 @@ export const movieResolvers = {
       context: Context
     ): Promise<Movie[]> => {
       try {
-        // Filter cast to only actors
-        const actorIds = args.cast
-          ? await context.tmdb.filterToActorsOnly(args.cast)
+        // Get collection analysis if requested
+        let collectionAnalysis: {
+          genres?: number[];
+          keywords?: number[];
+          actors?: number[];
+          crew?: number[];
+          yearRange?: number[];
+        } = {};
+
+        if (args.filterByCollectionAnalysis && context.user) {
+          collectionAnalysis = await getCollectionAnalysisForFiltering(
+            args.filterByCollectionAnalysis,
+            context,
+            10
+          );
+        }
+
+        // Filter cast to only actors (merge with collection analysis)
+        const allActorIds = [
+          ...(args.cast || []),
+          ...(collectionAnalysis.actors || []),
+        ];
+        const actorIds = allActorIds.length > 0
+          ? await context.tmdb.filterToActorsOnly(allActorIds)
           : undefined;
 
-        // Filter crew to only directors/writers
-        const crewIds = args.crew
-          ? await context.tmdb.filterToCrewOnly(args.crew)
+        // Filter crew to only directors/writers (merge with collection analysis)
+        const allCrewIds = [
+          ...(args.crew || []),
+          ...(collectionAnalysis.crew || []),
+        ];
+        const crewIds = allCrewIds.length > 0
+          ? await context.tmdb.filterToCrewOnly(allCrewIds)
           : undefined;
 
+        // Merge collection analysis with explicit filters (explicit filters take precedence)
         const discoverParams = buildDiscoverParams({
-          genres: args.genres,
-          yearRange: args.yearRange,
+          genres: args.genres || collectionAnalysis.genres,
+          yearRange: args.yearRange || collectionAnalysis.yearRange,
           cast: actorIds,
           actors: actorIds,
           crew: crewIds,
@@ -405,7 +477,7 @@ export const movieResolvers = {
           popularityRange: args.popularityRange,
           popularityLevel: args.popularityLevel,
           originCountries: args.originCountries,
-          keywords: args.keywordIds,
+          keywords: args.keywordIds || collectionAnalysis.keywords,
         });
         
         // Build options with popularity range if provided (from range or level)
@@ -417,10 +489,56 @@ export const movieResolvers = {
           popularityLte: popularityRange?.[1],
         });
         
-        const tmdbMovies = await context.tmdb.discoverMovies(
+        let tmdbMovies = await context.tmdb.discoverMovies(
           discoverParams,
           options
         );
+
+        // Apply collection filtering if provided
+        const user = context.user;
+        let inCollectionIds: Set<number> | null = null;
+        let excludeCollectionIds: Set<number> | null = null;
+        let allCollectionMovieIds: Set<number> | null = null;
+
+        if (user) {
+          if (args.inCollections && args.inCollections.length > 0) {
+            const movieIds = await getMovieIdsFromCollections(
+              context.prisma,
+              user.id,
+              args.inCollections
+            );
+            inCollectionIds = new Set(movieIds);
+          }
+
+          if (args.excludeCollections && args.excludeCollections.length > 0) {
+            const movieIds = await getMovieIdsFromCollections(
+              context.prisma,
+              user.id,
+              args.excludeCollections
+            );
+            excludeCollectionIds = new Set(movieIds);
+          }
+
+          if (args.notInAnyCollection) {
+            const movieIds = await getAllMovieIdsInCollections(
+              context.prisma,
+              user.id
+            );
+            allCollectionMovieIds = new Set(movieIds);
+          }
+        }
+
+        // Apply collection filtering
+        if (inCollectionIds || excludeCollectionIds || args.notInAnyCollection) {
+          tmdbMovies = filterMoviesByCollections(
+            tmdbMovies as Array<{ id: number }>,
+            inCollectionIds,
+            excludeCollectionIds,
+            args.notInAnyCollection || false,
+            allCollectionMovieIds
+          );
+        }
+
         return tmdbMovies.map((m) =>
           transformTMDBMovie(m as TMDBMovieResponse)
         );
@@ -697,6 +815,23 @@ export const movieResolvers = {
       context: Context
     ): Promise<Movie | null> => {
       try {
+        // Get collection analysis if requested (before checking hasAnyParams)
+        let collectionAnalysis: {
+          genres?: number[];
+          keywords?: number[];
+          actors?: number[];
+          crew?: number[];
+          yearRange?: number[];
+        } = {};
+
+        if (args.filterByCollectionAnalysis && context.user) {
+          collectionAnalysis = await getCollectionAnalysisForFiltering(
+            args.filterByCollectionAnalysis,
+            context,
+            10
+          );
+        }
+
         // Check if any parameters are provided
         const hasAnyParams = !!(
           args.genres ||
@@ -715,6 +850,7 @@ export const movieResolvers = {
           args.popularityLevel ||
           args.originCountries ||
           args.keywordIds ||
+          args.filterByCollectionAnalysis ||
           args.inCollections ||
           args.excludeCollections ||
           args.notInAnyCollection
@@ -825,19 +961,32 @@ export const movieResolvers = {
             }
           }
 
+          // Merge collection analysis with randomArgs (if collection analysis was requested)
+          const mergedGenres = randomArgs.genres || collectionAnalysis.genres;
+          const mergedYearRange = randomArgs.yearRange || collectionAnalysis.yearRange;
+          const mergedKeywords = randomArgs.keywordIds || collectionAnalysis.keywords;
+          const mergedActors = [
+            ...(randomArgs.cast || []),
+            ...(collectionAnalysis.actors || []),
+          ];
+          const mergedCrew = [
+            ...(randomArgs.crew || []),
+            ...(collectionAnalysis.crew || []),
+          ];
+
           // Filter cast to only actors and crew to only directors/writers
-          const actorIds = randomArgs.cast
-            ? await context.tmdb.filterToActorsOnly(randomArgs.cast)
+          const actorIds = mergedActors.length > 0
+            ? await context.tmdb.filterToActorsOnly(mergedActors)
             : undefined;
-          const crewIds = randomArgs.crew
-            ? await context.tmdb.filterToCrewOnly(randomArgs.crew)
+          const crewIds = mergedCrew.length > 0
+            ? await context.tmdb.filterToCrewOnly(mergedCrew)
             : undefined;
 
-          // Build discover params with all filters (using randomArgs if generated)
+          // Build discover params with all filters (using randomArgs if generated, merged with collection analysis)
           // yearRange should be [minYear, maxYear] format
           discoverFilters = {
-            genres: randomArgs.genres,
-            yearRange: randomArgs.yearRange,
+            genres: mergedGenres,
+            yearRange: mergedYearRange,
             cast: actorIds,
             actors: actorIds,
             crew: crewIds,
@@ -849,7 +998,7 @@ export const movieResolvers = {
             popularityRange: randomArgs.popularityRange,
             popularityLevel: randomArgs.popularityLevel,
             originCountries: randomArgs.originCountries,
-            keywords: randomArgs.keywordIds,
+            keywords: mergedKeywords,
           };
 
           // First attempt: try with ALL provided filters (AND logic - all must match)
@@ -876,24 +1025,27 @@ export const movieResolvers = {
           // 2. We have multiple genres/actors/crew (can try with fewer)
           // 3. We don't have strict filters like yearRange, runtimeRange, vote filters, popularity, exclusion filters, keywords, or collection filters (these should always be respected)
           // Note: If random params were generated, we still respect them as strict filters to maintain randomness
-          const hasStrictFilters = !!(
-            randomArgs.yearRange ||
-            randomArgs.runtimeRange ||
-            randomArgs.minVoteAverage ||
-            randomArgs.minVoteCount ||
-            randomArgs.originalLanguage ||
-            randomArgs.popularityRange ||
-            randomArgs.popularityLevel ||
-            randomArgs.watchProviders ||
-            randomArgs.excludeGenres ||
-            randomArgs.excludeCast ||
-            randomArgs.excludeCrew ||
-            randomArgs.originCountries ||
-            randomArgs.keywordIds ||
-            randomArgs.inCollections ||
-            randomArgs.excludeCollections ||
-            randomArgs.notInAnyCollection
-          );
+    const hasStrictFilters = !!(
+      randomArgs.yearRange ||
+      collectionAnalysis.yearRange ||
+      randomArgs.runtimeRange ||
+      randomArgs.minVoteAverage ||
+      randomArgs.minVoteCount ||
+      randomArgs.originalLanguage ||
+      randomArgs.popularityRange ||
+      randomArgs.popularityLevel ||
+      randomArgs.watchProviders ||
+      randomArgs.excludeGenres ||
+      randomArgs.excludeCast ||
+      randomArgs.excludeCrew ||
+      randomArgs.originCountries ||
+      randomArgs.keywordIds ||
+      collectionAnalysis.keywords ||
+      args.filterByCollectionAnalysis ||
+      randomArgs.inCollections ||
+      randomArgs.excludeCollections ||
+      randomArgs.notInAnyCollection
+    );
           
           if (tmdbMovies.length === 0 && shouldTryFallback(discoverFilters) && !hasStrictFilters) {
             discoverParams = buildDiscoverParams(discoverFilters, true);
