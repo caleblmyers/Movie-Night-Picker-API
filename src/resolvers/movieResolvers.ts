@@ -12,6 +12,8 @@ import {
   NowPlayingMoviesArgs,
   PopularMoviesArgs,
   TopRatedMoviesArgs,
+  UpcomingMoviesArgs,
+  RandomMovieFromSourceArgs,
   ActorsFromFeaturedMoviesArgs,
   CrewFromFeaturedMoviesArgs,
 } from "../types/resolvers";
@@ -493,6 +495,87 @@ export const movieResolvers = {
         );
       } catch (error) {
         throw handleError(error, "Failed to get top rated movies");
+      }
+    },
+
+    upcomingMovies: async (
+      _parent: unknown,
+      args: UpcomingMoviesArgs,
+      context: Context
+    ): Promise<Movie[]> => {
+      try {
+        const options = convertGraphQLOptionsToTMDBOptions(args.options);
+        const tmdbMovies = await context.tmdb.getUpcomingMovies(options);
+        return tmdbMovies.map((m) =>
+          transformTMDBMovie(m as TMDBMovieResponse)
+        );
+      } catch (error) {
+        throw handleError(error, "Failed to get upcoming movies");
+      }
+    },
+
+    randomMovieFromSource: async (
+      _parent: unknown,
+      args: RandomMovieFromSourceArgs,
+      context: Context
+    ): Promise<Movie> => {
+      try {
+        // Convert GraphQL enum to lowercase for TMDB API
+        const sourceMap: Record<string, "trending" | "now_playing" | "top_rated" | "upcoming"> = {
+          TRENDING: "trending",
+          NOW_PLAYING: "now_playing",
+          TOP_RATED: "top_rated",
+          UPCOMING: "upcoming",
+        };
+
+        // If source is not provided, randomly select one
+        let selectedSource = args.source;
+        if (!selectedSource) {
+          const sources: Array<"TRENDING" | "NOW_PLAYING" | "TOP_RATED" | "UPCOMING"> = [
+            "TRENDING",
+            "NOW_PLAYING",
+            "TOP_RATED",
+            "UPCOMING",
+          ];
+          selectedSource = pickRandomItem(sources);
+        }
+
+        const tmdbSource = sourceMap[selectedSource];
+        if (!tmdbSource) {
+          throw new Error(`Invalid source: ${selectedSource}`);
+        }
+
+        // For trending, randomly select timeWindow if not provided
+        let timeWindow: "day" | "week" = "day";
+        if (tmdbSource === "trending") {
+          if (args.timeWindow) {
+            timeWindow = args.timeWindow.toLowerCase() as "day" | "week";
+          } else {
+            // Randomly select day or week for trending
+            timeWindow = pickRandomItem(["day", "week"]);
+          }
+        } else if (args.timeWindow) {
+          // Use provided timeWindow even for non-trending (will be ignored by API)
+          timeWindow = args.timeWindow.toLowerCase() as "day" | "week";
+        }
+
+        const options = convertGraphQLOptionsToTMDBOptions(args.options);
+
+        const tmdbMovie = await context.tmdb.getRandomMovieFromSource(
+          tmdbSource,
+          timeWindow,
+          options
+        );
+
+        // Get the selected movie ID
+        const movieId = (tmdbMovie as { id: number }).id;
+
+        // Fetch full movie details including videos/trailer
+        const fullMovie = await context.tmdb.getMovie(movieId, options);
+
+        return transformTMDBMovie(fullMovie as TMDBMovieResponse);
+      } catch (error) {
+        throw handleError(error, "Failed to get random movie from source");
       }
     },
 

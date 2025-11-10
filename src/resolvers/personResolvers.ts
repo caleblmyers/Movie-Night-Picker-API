@@ -5,6 +5,7 @@ import {
   SearchPeopleArgs,
   RandomPersonArgs,
   TrendingPeopleArgs,
+  RandomActorFromSourceArgs,
 } from "../types/resolvers";
 import {
   transformTMDBPerson,
@@ -12,6 +13,7 @@ import {
 } from "../utils/transformers";
 import { handleError } from "../utils/errorHandler";
 import { convertGraphQLOptionsToTMDBOptions } from "../utils/tmdbOptionsConverter";
+import { pickRandomItem } from "../utils/discoverHelpers";
 
 export const personResolvers = {
   Query: {
@@ -115,6 +117,77 @@ export const personResolvers = {
         );
       } catch (error) {
         throw handleError(error, "Failed to get trending people");
+      }
+    },
+
+    randomActorFromSource: async (
+      _parent: unknown,
+      args: RandomActorFromSourceArgs,
+      context: Context
+    ): Promise<Person> => {
+      try {
+        // Convert GraphQL enum to lowercase for TMDB API
+        const sourceMap: Record<string, "trending" | "now_playing" | "top_rated" | "upcoming"> = {
+          TRENDING: "trending",
+          NOW_PLAYING: "now_playing",
+          TOP_RATED: "top_rated",
+          UPCOMING: "upcoming",
+        };
+
+        // If source is not provided, randomly select one
+        let selectedSource = args.source;
+        if (!selectedSource) {
+          const sources: Array<"TRENDING" | "NOW_PLAYING" | "TOP_RATED" | "UPCOMING"> = [
+            "TRENDING",
+            "NOW_PLAYING",
+            "TOP_RATED",
+            "UPCOMING",
+          ];
+          selectedSource = pickRandomItem(sources);
+        }
+
+        const tmdbSource = sourceMap[selectedSource];
+        if (!tmdbSource) {
+          throw new Error(`Invalid source: ${selectedSource}`);
+        }
+
+        // For trending, randomly select timeWindow if not provided
+        let timeWindow: "day" | "week" = "day";
+        if (tmdbSource === "trending") {
+          if (args.timeWindow) {
+            timeWindow = args.timeWindow.toLowerCase() as "day" | "week";
+          } else {
+            // Randomly select day or week for trending
+            timeWindow = pickRandomItem(["day", "week"]);
+          }
+        } else if (args.timeWindow) {
+          // Use provided timeWindow even for non-trending (will be ignored by API)
+          timeWindow = args.timeWindow.toLowerCase() as "day" | "week";
+        }
+
+        const options = convertGraphQLOptionsToTMDBOptions(args.options);
+
+        const actor = await context.tmdb.getRandomActorFromSource(
+          tmdbSource,
+          timeWindow,
+          options
+        );
+
+        // Transform to Person type
+        return {
+          id: actor.id,
+          name: actor.name,
+          biography: null,
+          profileUrl: actor.profile_path
+            ? `https://image.tmdb.org/t/p/w500${actor.profile_path}`
+            : null,
+          birthday: null,
+          placeOfBirth: null,
+          knownForDepartment: null,
+          popularity: null,
+        };
+      } catch (error) {
+        throw handleError(error, "Failed to get random actor from source");
       }
     },
   },

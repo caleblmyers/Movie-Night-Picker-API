@@ -182,6 +182,27 @@ export const movieSchema = gql`
     # Get top rated movies
     topRatedMovies(options: TMDBOptionsInput): [Movie!]!
 
+    # Get upcoming movies
+    upcomingMovies(options: TMDBOptionsInput): [Movie!]!
+
+    # Get a random movie from trending, now playing, top rated, or upcoming
+    # source: Which source to use (if not provided, a random source will be selected)
+    # timeWindow: For trending only - "day" or "week" (if not provided, randomly selected for trending, ignored for other sources)
+    randomMovieFromSource(
+      source: MovieSource
+      timeWindow: TrendingTimeWindow
+      options: TMDBOptionsInput
+    ): Movie
+
+    # Get a random actor from trending, now playing, top rated, or upcoming movies
+    # source: Which source to use (if not provided, a random source will be selected)
+    # timeWindow: For trending only - "day" or "week" (if not provided, randomly selected for trending, ignored for other sources)
+    randomActorFromSource(
+      source: MovieSource
+      timeWindow: TrendingTimeWindow
+      options: TMDBOptionsInput
+    ): Person
+
     # Get available movie genres
     movieGenres: [Genre!]!
 
@@ -225,6 +246,13 @@ export const movieSchema = gql`
   enum TrendingTimeWindow {
     DAY
     WEEK
+  }
+
+  enum MovieSource {
+    TRENDING
+    NOW_PLAYING
+    TOP_RATED
+    UPCOMING
   }
 
   type MovieTrailer {

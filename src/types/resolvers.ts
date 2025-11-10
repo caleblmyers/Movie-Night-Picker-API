@@ -136,6 +136,22 @@ export interface TopRatedMoviesArgs {
   options?: GraphQLOptionsInput;
 }
 
+export interface UpcomingMoviesArgs {
+  options?: GraphQLOptionsInput;
+}
+
+export interface RandomMovieFromSourceArgs {
+  source?: "TRENDING" | "NOW_PLAYING" | "TOP_RATED" | "UPCOMING";
+  timeWindow?: "DAY" | "WEEK";
+  options?: GraphQLOptionsInput;
+}
+
+export interface RandomActorFromSourceArgs {
+  source?: "TRENDING" | "NOW_PLAYING" | "TOP_RATED" | "UPCOMING";
+  timeWindow?: "DAY" | "WEEK";
+  options?: GraphQLOptionsInput;
+}
+
 export interface ActorsFromFeaturedMoviesArgs {
   options?: GraphQLOptionsInput;
 }

@@ -62,6 +62,8 @@ export class TMDBClient {
   protected movieCache = new Map<number, CacheEntry<unknown>>();
   protected personCache = new Map<number, CacheEntry<unknown>>();
   protected searchCache = new Map<string, CacheEntry<unknown[]>>();
+  // Cache for page metadata (total_pages) to avoid fetching page 1 every time
+  protected pageMetadataCache = new Map<string, CacheEntry<{ totalPages: number; firstPageResults: unknown[] }>>();
 
   // Request deduplication - prevent duplicate concurrent requests
   protected pendingRequests = new Map<string, Promise<unknown>>();

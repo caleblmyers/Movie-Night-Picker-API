@@ -168,26 +168,45 @@ export class MovieMethods extends TMDBClient {
 
   /**
    * Get a random movie from discover endpoint
+   * Randomizes across all available pages for better distribution
+   * Uses caching to reduce API calls
    */
   async getRandomMovie(options?: TMDBOptions) {
     const baseParams = this.buildRequestParams(options);
     const sortBy = options?.sortBy || DEFAULT_SORT_BY;
 
-    // Get total pages available
-    const firstPageResponse = await this.makeRequest<{ total_pages?: number }>(
+    // Create cache key for discover endpoint
+    const cacheKey = `page_metadata_discover_${JSON.stringify({ ...baseParams, sort_by: sortBy })}`;
+
+    // Get page metadata (cached if available)
+    const { totalPages, firstPageResults } = await this.getPageMetadata(
       "/discover/movie",
       {
         ...baseParams,
         sort_by: sortBy,
-        page: 1,
       },
-      "Failed to get random movie from TMDB"
+      cacheKey
     );
 
-    const totalPages = this.getTotalPages(firstPageResponse);
+    // If no pages or no results, throw error
+    if (totalPages === 0 || firstPageResults.length === 0) {
+      throw new Error("No movies found");
+    }
+
+    // If only one page, pick from first page results
+    if (totalPages === 1) {
+      return this.pickRandomItem(firstPageResults);
+    }
+
+    // Randomize page selection (1 to totalPages)
     const randomPage = this.getRandomPage(totalPages);
 
-    // Get movies from random page
+    // If we randomly selected page 1, use the cached results
+    if (randomPage === 1) {
+      return this.pickRandomItem(firstPageResults);
+    }
+
+    // Otherwise, fetch the randomly selected page
     const response = await this.makeRequest<{ results?: unknown[] }>(
       "/discover/movie",
       {
@@ -200,7 +219,8 @@ export class MovieMethods extends TMDBClient {
 
     const movies = (response.results || []) as unknown[];
     if (movies.length === 0) {
-      throw new Error("No movies found");
+      // Fallback: if random page has no results, use first page
+      return this.pickRandomItem(firstPageResults);
     }
 
     return this.pickRandomItem(movies);
@@ -260,6 +280,194 @@ export class MovieMethods extends TMDBClient {
       "Failed to get top rated movies from TMDB"
     );
     return response.results || [];
+  }
+
+  /**
+   * Get upcoming movies
+   * @param options - Optional TMDB options
+   */
+  async getUpcomingMovies(options?: TMDBOptions) {
+    const response = await this.makeRequest<{ results?: unknown[] }>(
+      "/movie/upcoming",
+      this.buildRequestParams(options),
+      "Failed to get upcoming movies from TMDB"
+    );
+    return response.results || [];
+  }
+
+  /**
+   * Get page metadata (total pages and first page results) with caching
+   * This reduces API calls by caching the total pages count
+   */
+  private async getPageMetadata(
+    endpoint: string,
+    params: Record<string, unknown>,
+    cacheKey: string
+  ): Promise<{ totalPages: number; firstPageResults: unknown[] }> {
+    // Check cache first
+    const cached = this.pageMetadataCache.get(cacheKey);
+    if (this.isCacheValid(cached)) {
+      return cached.data;
+    }
+
+    // Fetch first page to get metadata
+    const response = await this.makeRequest<{
+      total_pages?: number;
+      results?: unknown[];
+    }>(
+      endpoint,
+      { ...params, page: 1 },
+      "Failed to get page metadata"
+    );
+
+    const totalPages = this.getTotalPages(response);
+    const firstPageResults = (response.results || []) as unknown[];
+
+    const metadata = { totalPages, firstPageResults };
+
+    // Cache the metadata
+    this.pageMetadataCache.set(cacheKey, {
+      data: metadata,
+      timestamp: Date.now(),
+      ttl: CACHE_TTL.PAGE_METADATA,
+    });
+
+    return metadata;
+  }
+
+  /**
+   * Get a random movie from trending, now playing, top rated, or upcoming
+   * Randomizes across all available pages for better distribution
+   * Uses caching to reduce API calls
+   * @param source - Which source to use: "trending", "now_playing", "top_rated", or "upcoming"
+   * @param timeWindow - For trending: "day" or "week" (default: "day")
+   * @param options - Optional TMDB options
+   */
+  async getRandomMovieFromSource(
+    source: "trending" | "now_playing" | "top_rated" | "upcoming",
+    timeWindow: "day" | "week" = "day",
+    options?: TMDBOptions
+  ) {
+    const baseParams = this.buildRequestParams(options);
+    const sortBy = options?.sortBy || DEFAULT_SORT_BY;
+
+    // Determine endpoint based on source
+    let endpoint: string;
+    if (source === "trending") {
+      endpoint = `/trending/movie/${timeWindow}`;
+    } else {
+      endpoint = `/movie/${source}`;
+    }
+
+    // Create cache key based on source, timeWindow, and options
+    const cacheKey = `page_metadata_${endpoint}_${JSON.stringify({ ...baseParams, ...(source !== "trending" && { sort_by: sortBy }) })}`;
+
+    // Get page metadata (cached if available)
+    const { totalPages, firstPageResults } = await this.getPageMetadata(
+      endpoint,
+      {
+        ...baseParams,
+        ...(source !== "trending" && { sort_by: sortBy }),
+      },
+      cacheKey
+    );
+
+    // If no pages or no results, throw error
+    if (totalPages === 0 || firstPageResults.length === 0) {
+      throw new Error(`No movies found in ${source}`);
+    }
+
+    // If only one page, pick from first page results
+    if (totalPages === 1) {
+      return this.pickRandomItem(firstPageResults);
+    }
+
+    // Randomize page selection (1 to totalPages)
+    // Use better randomization: weight towards middle pages slightly to avoid always getting popular items
+    const randomPage = this.getRandomPage(totalPages);
+
+    // If we randomly selected page 1, use the cached results
+    if (randomPage === 1) {
+      return this.pickRandomItem(firstPageResults);
+    }
+
+    // Otherwise, fetch the randomly selected page
+    const response = await this.makeRequest<{ results?: unknown[] }>(
+      endpoint,
+      {
+        ...baseParams,
+        ...(source !== "trending" && { sort_by: sortBy }),
+        page: randomPage,
+      },
+      `Failed to get random movie from ${source}`
+    );
+
+    const movies = (response.results || []) as unknown[];
+    if (movies.length === 0) {
+      // Fallback: if random page has no results, use first page
+      return this.pickRandomItem(firstPageResults);
+    }
+
+    return this.pickRandomItem(movies);
+  }
+
+  /**
+   * Get a random actor from trending, now playing, top rated, or upcoming movies
+   * Optimized to retry with a different movie if the first one has no actors
+   * @param source - Which source to use: "trending", "now_playing", "top_rated", or "upcoming"
+   * @param timeWindow - For trending: "day" or "week" (default: "day")
+   * @param options - Optional TMDB options
+   * @param maxRetries - Maximum number of retries if movie has no actors (default: 3)
+   */
+  async getRandomActorFromSource(
+    source: "trending" | "now_playing" | "top_rated" | "upcoming",
+    timeWindow: "day" | "week" = "day",
+    options?: TMDBOptions,
+    maxRetries: number = 3
+  ) {
+    let attempts = 0;
+    const seenMovieIds = new Set<number>();
+
+    while (attempts < maxRetries) {
+      // Get a random movie from the source
+      const randomMovie = await this.getRandomMovieFromSource(
+        source,
+        timeWindow,
+        options
+      );
+
+      const movieId = (randomMovie as { id: number }).id;
+
+      // Skip if we've already tried this movie
+      if (seenMovieIds.has(movieId)) {
+        attempts++;
+        continue;
+      }
+      seenMovieIds.add(movieId);
+
+      try {
+        // Get credits for the random movie (uses caching)
+        const credits = await this.getMovieCredits(movieId);
+
+        // Extract actors from cast
+        const cast = (credits.cast || []) as Array<{
+          id: number;
+          name: string;
+          profile_path?: string;
+        }>;
+
+        if (cast.length > 0) {
+          // Pick a random actor from the cast
+          return this.pickRandomItem(cast);
+        }
+      } catch (error) {
+        // If credits fetch fails, try another movie
+      }
+
+      attempts++;
+    }
+
+    throw new Error(`No actors found after ${maxRetries} attempts from ${source}`);
   }
 
   /**

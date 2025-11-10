@@ -20,6 +20,7 @@ export const CACHE_TTL = {
   MOVIE: 30 * 60 * 1000, // 30 minutes
   PERSON: 30 * 60 * 1000, // 30 minutes
   SEARCH: 5 * 60 * 1000, // 5 minutes - short TTL for search results
+  PAGE_METADATA: 10 * 60 * 1000, // 10 minutes - cache total pages for random selection
 };
 
 export interface CacheEntry<T> {
