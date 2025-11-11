@@ -27,87 +27,6 @@ This is the GraphQL API backend that powers the Movie Night Picker frontend appl
 - PostgreSQL (or Docker for local development)
 - TMDB API Key (free account)
 
-## Setup Instructions
-
-### 1. Clone the Repository
-
-```bash
-git clone <repository-url>
-cd movie-night-picker-api
-```
-
-### 2. Install Dependencies
-
-```bash
-npm install
-```
-
-### 3. Set Up Environment Variables
-
-Create a `.env` file in the root directory with the following variables:
-
-```env
-# Database
-DATABASE_URL="postgresql://postgres:postgres@localhost:5432/movie_night_picker?schema=public"
-
-# TMDB API
-TMDB_API_KEY="your_tmdb_api_key"
-
-# JWT Secret (generate a secure random string)
-JWT_SECRET="your_jwt_secret_key"
-
-# Application
-PORT=4000
-FRONTEND_URL="http://localhost:5173"
-```
-
-**Getting TMDB API Key:**
-
-1. Go to [TMDB Developer Portal](https://www.themoviedb.org/settings/api)
-2. Create a free account
-3. Request an API key
-4. Copy your API key to the `.env` file
-
-**Generating JWT Secret:**
-
-You can generate a secure JWT secret using:
-
-```bash
-node -e "console.log(require('crypto').randomBytes(64).toString('hex'))"
-```
-
-### 4. Set Up Database
-
-**Option A: Using Docker Compose (Recommended for Local Development)**
-
-```bash
-docker-compose up -d
-```
-
-This will start a PostgreSQL container on port 5432 with:
-- Database: `movie_night_picker`
-- User: `postgres`
-- Password: `postgres`
-
-**Option B: Using Existing PostgreSQL**
-
-Ensure your `DATABASE_URL` in `.env` points to your PostgreSQL instance.
-
-### 5. Run Database Migrations
-
-```bash
-npm run prisma:generate
-npm run prisma:migrate
-```
-
-### 6. Start the Development Server
-
-```bash
-npm run dev
-```
-
-The GraphQL API will be available at `http://localhost:4000/graphql`
-
 ## GraphQL API
 
 This API uses GraphQL instead of REST endpoints. You can access the GraphQL Playground at `http://localhost:4000/graphql` in development mode.
@@ -223,32 +142,9 @@ query {
 }
 ```
 
-## Available Scripts
-
-- `npm run dev` - Start development server with hot reload
-- `npm run build` - Build TypeScript to JavaScript
-- `npm run start` - Start production server
-- `npm run start:prod` - Deploy migrations and start production server
-- `npm run prisma:generate` - Generate Prisma Client
-- `npm run prisma:migrate` - Run database migrations
-- `npm run prisma:studio` - Open Prisma Studio (database GUI)
-
-## Project Structure
-
-```
-src/
-├── schema/          # GraphQL schema definitions
-├── resolvers/       # GraphQL resolvers
-├── datasources/     # TMDB API integration
-├── utils/           # Utility functions
-├── types/           # TypeScript type definitions
-├── context.ts       # GraphQL context creation
-└── server.ts        # Express server setup
-```
-
 ## License
 
-This project is licensed under the ISC License.
+This project is licensed under the MIT License - see the LICENSE file for details.
 
 ## TMDB API Attribution
 

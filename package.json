@@ -14,7 +14,7 @@
     "prisma:studio": "prisma studio"
   },
   "author": "Caleb Myers",
-  "license": "ISC",
+  "license": "MIT",
   "description": "Movie Night Picker API backend",
   "dependencies": {
     "@apollo/server": "^4.10.0",
