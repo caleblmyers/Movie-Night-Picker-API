@@ -36,6 +36,10 @@ import {
   getCollectionAnalysisForFiltering,
 } from "../utils/collectionHelpers";
 import {
+  getSuggestHistory,
+  addToSuggestHistory,
+} from "../utils/dbHelpers";
+import {
   MOVIE_VIBES,
   ERA_OPTIONS,
   MOVIE_VIBE_ICONS,
@@ -558,6 +562,15 @@ export const movieResolvers = {
           throw new Error("At least one movie ID must be provided");
         }
 
+        // Get suggest history to exclude from results
+        const historyIds = context.user
+          ? await getSuggestHistory(context.prisma, context.user.id)
+          : [];
+        const historySet = new Set(historyIds);
+        
+        // Exclude selected movies from results
+        const selectedMovieIdsSet = new Set(args.selectedMovieIds);
+
         // Extract categories from selected movies
         const prefs = await extractCategoriesFromMovies(
           args.selectedMovieIds,
@@ -626,7 +639,12 @@ export const movieResolvers = {
           }
 
           const discoverParams = buildDiscoverParams(discoverFilters, false);
-          tmdbMovies = await context.tmdb.discoverMovies(discoverParams, options);
+          const discoveredMovies = await context.tmdb.discoverMovies(discoverParams, options);
+          
+          // Filter out movies from suggest history and selected movies
+          tmdbMovies = (discoveredMovies as Array<{ id: number }>).filter(
+            (movie) => !historySet.has(movie.id) && !selectedMovieIdsSet.has(movie.id)
+          );
           
           attempts++;
         }
@@ -636,19 +654,72 @@ export const movieResolvers = {
           // Last resort: try with just year range if available
           if (prefs.yearRange) {
             const discoverParams = buildDiscoverParams({ yearRange: prefs.yearRange }, false);
-            tmdbMovies = await context.tmdb.discoverMovies(discoverParams, options);
+            const discoveredMovies = await context.tmdb.discoverMovies(discoverParams, options);
+            // Filter out movies from suggest history and selected movies
+            tmdbMovies = (discoveredMovies as Array<{ id: number }>).filter(
+              (movie) => !historySet.has(movie.id) && !selectedMovieIdsSet.has(movie.id)
+            );
           }
           
-          // If still no results, get a random popular movie
+          // If still no results, get a random popular movie (excluding history)
           if (tmdbMovies.length === 0) {
-            const randomMovie = await context.tmdb.getRandomMovieFromSource(
-              "popular",
-              undefined,
-              options
-            );
-            const movieId = (randomMovie as { id: number }).id;
+            let randomMovie: { id: number } | null = null;
+            let retries = 0;
+            const maxRetries = 20; // Try up to 20 times to find a movie not in history
+            
+            while (!randomMovie && retries < maxRetries) {
+              const candidate = await context.tmdb.getRandomMovieFromSource(
+                "popular",
+                undefined,
+                options
+              );
+              const movieId = (candidate as { id: number }).id;
+              
+              if (!historySet.has(movieId) && !selectedMovieIdsSet.has(movieId)) {
+                randomMovie = candidate as { id: number };
+              }
+              retries++;
+            }
+            
+            if (!randomMovie) {
+              // If we can't find a movie not in history/selected, try a few more times with any movie
+              // but still exclude selected movies
+              let fallbackRetries = 0;
+              const maxFallbackRetries = 10;
+              while (!randomMovie && fallbackRetries < maxFallbackRetries) {
+                const candidate = await context.tmdb.getRandomMovieFromSource(
+                  "popular",
+                  undefined,
+                  options
+                ) as { id: number };
+                
+                // Still exclude selected movies even in fallback
+                if (!selectedMovieIdsSet.has(candidate.id)) {
+                  randomMovie = candidate;
+                }
+                fallbackRetries++;
+              }
+              
+              // Last resort: if we still can't find one, return any movie (should be very rare)
+              if (!randomMovie) {
+                randomMovie = await context.tmdb.getRandomMovieFromSource(
+                  "popular",
+                  undefined,
+                  options
+                ) as { id: number };
+              }
+            }
+            
+            const movieId = randomMovie.id;
             const fullMovie = await context.tmdb.getMovie(movieId, options);
-            return transformTMDBMovie(fullMovie as TMDBMovieResponse);
+            const result = transformTMDBMovie(fullMovie as TMDBMovieResponse);
+            
+            // Save to history if user is authenticated
+            if (context.user) {
+              await addToSuggestHistory(context.prisma, context.user.id, result.id);
+            }
+            
+            return result;
           }
         }
 
@@ -658,8 +729,14 @@ export const movieResolvers = {
         
         // Fetch full movie details including videos/trailer
         const fullMovie = await context.tmdb.getMovie(selectedMovie.id, options);
+        const result = transformTMDBMovie(fullMovie as TMDBMovieResponse);
         
-        return transformTMDBMovie(fullMovie as TMDBMovieResponse);
+        // Save to suggest history if user is authenticated
+        if (context.user) {
+          await addToSuggestHistory(context.prisma, context.user.id, result.id);
+        }
+        
+        return result;
       } catch (error) {
         throw handleError(error, "Failed to suggest movie");
       }
@@ -677,6 +754,12 @@ export const movieResolvers = {
         if (round < 1 || round > SUGGEST_MOVIE_ROUNDS) {
           throw new Error(`Round must be between 1 and ${SUGGEST_MOVIE_ROUNDS}`);
         }
+
+        // Get suggest history to exclude from results
+        const historyIds = context.user
+          ? await getSuggestHistory(context.prisma, context.user.id)
+          : [];
+        const historySet = new Set(historyIds);
 
         // Get available genres
         const allGenres = await context.tmdb.getGenres();
@@ -704,7 +787,11 @@ export const movieResolvers = {
             });
 
             // Discover movies with this combination
-            let tmdbMovies = await context.tmdb.discoverMovies(discoverParams, options);
+            let discoveredMovies = await context.tmdb.discoverMovies(discoverParams, options);
+            // Filter out movies from suggest history
+            let tmdbMovies = (discoveredMovies as Array<{ id: number }>).filter(
+              (movie) => !historySet.has(movie.id)
+            );
 
             // If no results, try with fewer constraints
             if (tmdbMovies.length === 0 && combo.genres && combo.genres.length > 1) {
@@ -713,13 +800,21 @@ export const movieResolvers = {
                 { ...discoverFilters, genres: [combo.genres[0]] },
                 false
               );
-              tmdbMovies = await context.tmdb.discoverMovies(fallbackParams, options);
+              const fallbackDiscovered = await context.tmdb.discoverMovies(fallbackParams, options);
+              // Filter out movies from suggest history
+              tmdbMovies = (fallbackDiscovered as Array<{ id: number }>).filter(
+                (movie) => !historySet.has(movie.id)
+              );
             }
 
             // If still no results, try with just genres (no other filters)
             if (tmdbMovies.length === 0 && combo.genres && combo.genres.length > 0) {
               const genreOnlyParams = buildDiscoverParams({ genres: combo.genres }, false);
-              tmdbMovies = await context.tmdb.discoverMovies(genreOnlyParams, options);
+              const genreDiscovered = await context.tmdb.discoverMovies(genreOnlyParams, options);
+              // Filter out movies from suggest history
+              tmdbMovies = (genreDiscovered as Array<{ id: number }>).filter(
+                (movie) => !historySet.has(movie.id)
+              );
             }
 
             // Pick a random movie from results
@@ -744,36 +839,118 @@ export const movieResolvers = {
         const validMovies = movies.filter((m): m is Movie => m !== null);
 
         if (validMovies.length === 0) {
-          // Fallback: return 4 random movies from popular sources
+          // Fallback: return 4 random movies from popular sources (excluding history)
           const fallbackOptions = convertGraphQLOptionsToTMDBOptions({
             voteAverageGte: 5.0,
             voteCountGte: 50,
           });
           
-          const fallbackMovies = await Promise.all([
-            context.tmdb.getRandomMovieFromSource("popular", undefined, fallbackOptions),
-            context.tmdb.getRandomMovieFromSource("top_rated", undefined, fallbackOptions),
-            context.tmdb.getRandomMovieFromSource("trending", "day", fallbackOptions),
-            context.tmdb.getRandomMovieFromSource("now_playing", undefined, fallbackOptions),
-          ]);
-
-          const fallbackResults = await Promise.all(
-            fallbackMovies.map(async (m) => {
-              const movieId = (m as { id: number }).id;
+          const fallbackResults: Movie[] = [];
+          const sources = ["popular", "top_rated", "trending", "now_playing"] as const;
+          let retries = 0;
+          const maxRetries = 40; // Try up to 40 times to find 4 movies not in history
+          
+          while (fallbackResults.length < 4 && retries < maxRetries) {
+            const sourceIndex = retries % sources.length;
+            const source = sources[sourceIndex];
+            const timeWindow = source === "trending" ? "day" : undefined;
+            
+            try {
+              const randomMovie = await context.tmdb.getRandomMovieFromSource(
+                source,
+                timeWindow,
+                fallbackOptions
+              );
+              const movieId = (randomMovie as { id: number }).id;
+              
+              // Skip if in history
+              if (historySet.has(movieId)) {
+                retries++;
+                continue;
+              }
+              
+              // Check if already added
+              if (fallbackResults.some((m) => m.id === movieId)) {
+                retries++;
+                continue;
+              }
+              
               const fullMovie = await context.tmdb.getMovie(movieId, fallbackOptions);
-              return transformTMDBMovie(fullMovie as TMDBMovieResponse);
-            })
-          );
+              const transformed = transformTMDBMovie(fullMovie as TMDBMovieResponse);
+              fallbackResults.push(transformed);
+            } catch (error) {
+              // If one source fails, continue with others
+            }
+            
+            retries++;
+          }
+          
+          // If we still don't have 4 movies, fill with any movies (even if in history)
+          if (fallbackResults.length < 4) {
+            const remaining = 4 - fallbackResults.length;
+            for (let i = 0; i < remaining; i++) {
+              try {
+                const source = sources[i % sources.length];
+                const timeWindow = source === "trending" ? "day" : undefined;
+                const randomMovie = await context.tmdb.getRandomMovieFromSource(
+                  source,
+                  timeWindow,
+                  fallbackOptions
+                );
+                const movieId = (randomMovie as { id: number }).id;
+                
+                // Check if already added
+                if (fallbackResults.some((m) => m.id === movieId)) {
+                  continue;
+                }
+                
+                const fullMovie = await context.tmdb.getMovie(movieId, fallbackOptions);
+                const transformed = transformTMDBMovie(fullMovie as TMDBMovieResponse);
+                fallbackResults.push(transformed);
+              } catch (error) {
+                // Continue if one fails
+              }
+            }
+          }
 
-          return fallbackResults;
+          return fallbackResults.slice(0, 4);
         }
 
-        // If we have fewer than 4 movies, fill with random popular movies
+        // If we have fewer than 4 movies, fill with random popular movies (excluding history)
         const fillOptions = convertGraphQLOptionsToTMDBOptions({
           voteAverageGte: 5.0,
           voteCountGte: 50,
         });
         
+        let fillRetries = 0;
+        const maxFillRetries = 20; // Try up to 20 times to find movies not in history
+        
+        while (validMovies.length < 4 && fillRetries < maxFillRetries) {
+          try {
+            const randomMovie = await context.tmdb.getRandomMovieFromSource(
+              "popular",
+              undefined,
+              fillOptions
+            );
+            const movieId = (randomMovie as { id: number }).id;
+            
+            // Skip if in history or already added
+            if (historySet.has(movieId) || validMovies.some((m) => m.id === movieId)) {
+              fillRetries++;
+              continue;
+            }
+            
+            const fullMovie = await context.tmdb.getMovie(movieId, fillOptions);
+            const transformed = transformTMDBMovie(fullMovie as TMDBMovieResponse);
+            validMovies.push(transformed);
+          } catch (error) {
+            // If we can't get more movies, break
+            break;
+          }
+          fillRetries++;
+        }
+        
+        // If we still need more movies, allow history movies (but avoid duplicates)
         while (validMovies.length < 4) {
           try {
             const randomMovie = await context.tmdb.getRandomMovieFromSource(
@@ -782,13 +959,15 @@ export const movieResolvers = {
               fillOptions
             );
             const movieId = (randomMovie as { id: number }).id;
+            
+            // Only check for duplicates now
+            if (validMovies.some((m) => m.id === movieId)) {
+              continue;
+            }
+            
             const fullMovie = await context.tmdb.getMovie(movieId, fillOptions);
             const transformed = transformTMDBMovie(fullMovie as TMDBMovieResponse);
-            
-            // Avoid duplicates
-            if (!validMovies.some((m) => m.id === transformed.id)) {
-              validMovies.push(transformed);
-            }
+            validMovies.push(transformed);
           } catch (error) {
             // If we can't get more movies, break
             break;
@@ -807,6 +986,42 @@ export const movieResolvers = {
       _context: Context
     ): Promise<number> => {
       return SUGGEST_MOVIE_ROUNDS;
+    },
+
+    suggestHistory: async (
+      _parent: unknown,
+      _args: unknown,
+      context: Context
+    ): Promise<Movie[]> => {
+      try {
+        if (!context.user) {
+          throw new Error("Authentication required");
+        }
+
+        // Get suggest history movie IDs
+        const historyIds = await getSuggestHistory(context.prisma, context.user.id);
+
+        if (historyIds.length === 0) {
+          return [];
+        }
+
+        // Fetch full movie details for each history entry
+        const options = convertGraphQLOptionsToTMDBOptions({});
+        const moviePromises = historyIds.map((tmdbId) =>
+          context.tmdb.getMovie(tmdbId, options).catch(() => null)
+        );
+
+        const movies = await Promise.all(moviePromises);
+
+        // Filter out null results and transform
+        const validMovies = movies
+          .filter((m): m is TMDBMovieResponse => m !== null)
+          .map((m) => transformTMDBMovie(m));
+
+        return validMovies;
+      } catch (error) {
+        throw handleError(error, "Failed to get suggest history");
+      }
     },
 
     shuffleMovie: async (

@@ -143,3 +143,78 @@ export function calculateAverageRating(ratings: { rating: number }[]): number | 
   return sum / ratings.length;
 }
 
+/**
+ * Get suggest movie history for a user (up to 10 most recent)
+ * Returns array of TMDB movie IDs
+ */
+export async function getSuggestHistory(
+  prisma: PrismaClient,
+  userId: number
+): Promise<number[]> {
+  const history = await prisma.suggestMovieHistory.findMany({
+    where: { userId },
+    orderBy: { createdAt: "desc" },
+    take: 10,
+    select: { tmdbId: true },
+  });
+
+  return history.map((h) => h.tmdbId);
+}
+
+/**
+ * Add a movie to suggest history
+ * Maintains maximum of 10 movies by removing oldest if needed
+ */
+export async function addToSuggestHistory(
+  prisma: PrismaClient,
+  userId: number,
+  tmdbId: number
+): Promise<void> {
+  // Check if movie already exists in history
+  const existing = await prisma.suggestMovieHistory.findUnique({
+    where: {
+      userId_tmdbId: {
+        userId,
+        tmdbId,
+      },
+    },
+  });
+
+  if (existing) {
+    // Update the createdAt timestamp to make it most recent
+    await prisma.suggestMovieHistory.update({
+      where: { id: existing.id },
+      data: { createdAt: new Date() },
+    });
+  } else {
+    // Add new entry
+    await prisma.suggestMovieHistory.create({
+      data: {
+        userId,
+        tmdbId,
+      },
+    });
+
+    // Check if we have more than 10 entries
+    const count = await prisma.suggestMovieHistory.count({
+      where: { userId },
+    });
+
+    if (count > 10) {
+      // Remove oldest entries (keep only 10 most recent)
+      const oldestEntries = await prisma.suggestMovieHistory.findMany({
+        where: { userId },
+        orderBy: { createdAt: "asc" },
+        take: count - 10,
+        select: { id: true },
+      });
+
+      await prisma.suggestMovieHistory.deleteMany({
+        where: {
+          id: { in: oldestEntries.map((e) => e.id) },
+        },
+      });
+    }
+  }
+}
+

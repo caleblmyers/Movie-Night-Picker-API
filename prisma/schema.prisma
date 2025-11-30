@@ -11,17 +11,18 @@ generator client {
 }
 
 model User {
-  id        Int      @id @default(autoincrement())
-  email     String   @unique
-  password  String
-  name      String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  history   MovieHistory[]
-  savedMovies SavedMovie[]
-  ratings   Rating[]
-  reviews   Review[]
-  collections Collection[]
+  id             Int                   @id @default(autoincrement())
+  email          String                @unique
+  password       String
+  name           String
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+  history        MovieHistory[]
+  savedMovies    SavedMovie[]
+  ratings        Rating[]
+  reviews        Review[]
+  collections    Collection[]
+  suggestHistory SuggestMovieHistory[]
 }
 
 model MovieHistory {
@@ -36,24 +37,24 @@ model MovieHistory {
 
 model SavedMovie {
   id        Int      @id @default(autoincrement())
-  tmdbId    Int      // TMDB movie ID
+  tmdbId    Int // TMDB movie ID
   createdAt DateTime @default(now())
   userId    Int
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
+
   @@unique([userId, tmdbId]) // Prevent duplicate saves
   @@index([userId])
 }
 
 model Rating {
   id        Int      @id @default(autoincrement())
-  tmdbId    Int      // TMDB movie ID
-  rating    Int      // Rating from 1-5 or 1-10 (you can adjust)
+  tmdbId    Int // TMDB movie ID
+  rating    Int // Rating from 1-5 or 1-10 (you can adjust)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   userId    Int
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
+
   @@unique([userId, tmdbId]) // One rating per user per movie
   @@index([userId])
   @@index([tmdbId])
@@ -61,29 +62,29 @@ model Rating {
 
 model Review {
   id        Int      @id @default(autoincrement())
-  tmdbId    Int      // TMDB movie ID
+  tmdbId    Int // TMDB movie ID
   content   String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   userId    Int
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
+
   @@unique([userId, tmdbId]) // One review per user per movie
   @@index([userId])
   @@index([tmdbId])
 }
 
 model Collection {
-  id          Int      @id @default(autoincrement())
+  id          Int               @id @default(autoincrement())
   name        String
   description String?
-  isPublic    Boolean  @default(false)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  isPublic    Boolean           @default(false)
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
   userId      Int
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user        User              @relation(fields: [userId], references: [id], onDelete: Cascade)
   movies      CollectionMovie[]
-  
+
   @@index([userId])
 }
 
@@ -91,10 +92,23 @@ model CollectionMovie {
   id           Int        @id @default(autoincrement())
   collectionId Int
   collection   Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
-  tmdbId       Int        // TMDB movie ID
+  tmdbId       Int // TMDB movie ID
   addedAt      DateTime   @default(now())
-  
+
   @@unique([collectionId, tmdbId]) // Prevent duplicate movies in same collection
   @@index([collectionId])
   @@index([tmdbId])
+}
+
+model SuggestMovieHistory {
+  id        Int      @id @default(autoincrement())
+  tmdbId    Int // TMDB movie ID
+  createdAt DateTime @default(now())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, tmdbId]) // Prevent duplicate movies in history
+  @@index([userId])
+  @@index([tmdbId])
+  @@index([userId, createdAt]) // For efficient ordering and limiting
 }

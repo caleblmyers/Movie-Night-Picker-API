@@ -159,6 +159,10 @@ export const movieSchema = gql`
     # Get the number of available rounds for the suggest movie flow
     suggestMovieRounds: Int!
 
+    # Get suggest movie history (up to 10 most recent movies suggested)
+    # Requires authentication
+    suggestHistory: [Movie!]!
+
     # Shuffle/random movie (uses discover and returns one random result)
     # Accepts optional genres (as IDs), yearRange, cast (actors), crew (directors/writers),
     # minVoteAverage, minVoteCount, runtimeRange, originalLanguage, streaming providers,
