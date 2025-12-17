@@ -4,6 +4,8 @@ import { handleError } from "../utils/errorHandler";
 import { verifyCollectionOwnership } from "../utils/dbHelpers";
 import { validateCollectionName } from "../utils/validationHelpers";
 import { calculateCollectionInsights } from "../utils/collectionInsights";
+import type { CollectionInsightsData } from "../utils/collectionInsights";
+export type { CollectionInsightsData } from "../utils/collectionInsights";
 import { verifyCollectionAccess, extractCollectionAnalysis } from "../utils/collectionHelpers";
 import {
   GetCollectionArgs,

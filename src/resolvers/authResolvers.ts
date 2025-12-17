@@ -4,6 +4,7 @@ import { handleError } from "../utils/errorHandler";
 import { excludePassword, validatePassword } from "../utils/userHelpers";
 import { AuthArgs, AuthPayload } from "../types/resolvers";
 import { ERROR_MESSAGES } from "../constants";
+import { getOrCreateSavedMoviesCollection } from "../utils/dbHelpers";
 
 export const authResolvers = {
   Mutation: {
@@ -47,6 +48,9 @@ export const authResolvers = {
             name: args.email, // Default name to email
           },
         });
+
+        // Create default "Saved Movies" collection for the new user
+        await getOrCreateSavedMoviesCollection(context.prisma, user.id);
 
         // Generate token
         const token = generateToken({ userId: user.id, email: user.email });
